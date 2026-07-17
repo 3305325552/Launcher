@@ -29,26 +29,6 @@ FetchContent_Declare(
 set(BUILD_MD2HTML_EXECUTABLE OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(md4c)
 
-FetchContent_Declare(
-    cpr
-    GIT_REPOSITORY https://github.com/libcpr/cpr.git
-    GIT_TAG 1.12.0
-)
-set(CPR_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(CPR_USE_SYSTEM_CURL OFF CACHE BOOL "" FORCE)
-set(CPR_USE_SYSTEM_LIB_PSL ON CACHE BOOL "" FORCE)
-set(BUILD_CURL_EXE OFF CACHE BOOL "" FORCE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(BUILD_LIBCURL_DOCS OFF CACHE BOOL "" FORCE)
-set(BUILD_MISC_DOCS OFF CACHE BOOL "" FORCE)
-set(CURL_USE_LIBPSL OFF CACHE BOOL "" FORCE)
-set(CURL_USE_LIBSSH2 OFF CACHE BOOL "" FORCE)
-set(CURL_BROTLI OFF CACHE STRING "" FORCE)
-set(CURL_ZSTD OFF CACHE STRING "" FORCE)
-set(USE_LIBIDN2 OFF CACHE BOOL "" FORCE)
-set(USE_NGHTTP2 OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(cpr)
-
 add_library(launcher_core STATIC
     src/app/AppContext.cpp
     src/core/AnimatedBackground.cpp
@@ -72,7 +52,6 @@ target_include_directories(launcher_core PUBLIC
 
 target_link_libraries(launcher_core PUBLIC
     nlohmann_json::nlohmann_json
-    cpr::cpr
     shell32
     ole32
     winhttp

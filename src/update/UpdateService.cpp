@@ -2,8 +2,6 @@
 
 #include "launcher/AppIdentity.hpp"
 
-#include <cpr/cpr.h>
-
 #include <windows.h>
 #include <bcrypt.h>
 #include <shlobj.h>
@@ -199,21 +197,83 @@ std::optional<std::string> systemProxyForUrl(const std::wstring& url)
     return proxy;
 }
 
-std::string responseError(const cpr::Response& response)
+std::string windowsErrorMessage(DWORD code)
 {
-    if (response.error.code != cpr::ErrorCode::OK && !response.error.message.empty()) {
-        return response.error.message;
+    wchar_t* buffer = nullptr;
+    const DWORD length = FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                                        nullptr, code, 0, reinterpret_cast<wchar_t*>(&buffer), 0, nullptr);
+    std::string message = length > 0 && buffer ? trim(wideToUtf8(std::wstring_view(buffer, length))) : std::string{};
+    if (buffer) {
+        LocalFree(buffer);
     }
-    if (response.status_code != 200) {
-        return "The update server returned HTTP " + std::to_string(response.status_code) + ".";
+    if (message.empty()) {
+        message = "Windows error " + std::to_string(code);
     }
-    return {};
+    return message;
+}
+
+bool crackHttpUrl(const std::wstring& url, std::wstring& host, std::wstring& path, INTERNET_PORT& port, bool& secure)
+{
+    URL_COMPONENTS components{};
+    components.dwStructSize = sizeof(components);
+    components.dwSchemeLength = static_cast<DWORD>(-1);
+    components.dwHostNameLength = static_cast<DWORD>(-1);
+    components.dwUrlPathLength = static_cast<DWORD>(-1);
+    components.dwExtraInfoLength = static_cast<DWORD>(-1);
+    if (!WinHttpCrackUrl(url.c_str(), static_cast<DWORD>(url.size()), 0, &components)) {
+        return false;
+    }
+    if (components.nScheme != INTERNET_SCHEME_HTTP && components.nScheme != INTERNET_SCHEME_HTTPS) {
+        return false;
+    }
+    host.assign(components.lpszHostName, components.dwHostNameLength);
+    path.assign(components.lpszUrlPath, components.dwUrlPathLength);
+    if (components.lpszExtraInfo && components.dwExtraInfoLength > 0) {
+        path.append(components.lpszExtraInfo, components.dwExtraInfoLength);
+    }
+    if (path.empty()) {
+        path = L"/";
+    }
+    port = components.nPort;
+    secure = components.nScheme == INTERNET_SCHEME_HTTPS;
+    return !host.empty();
+}
+
+std::uint64_t responseContentLength(HINTERNET request)
+{
+    DWORD bytes = 0;
+    WinHttpQueryHeaders(request, WINHTTP_QUERY_CONTENT_LENGTH, WINHTTP_HEADER_NAME_BY_INDEX, nullptr, &bytes, WINHTTP_NO_HEADER_INDEX);
+    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || bytes < sizeof(wchar_t)) {
+        return 0;
+    }
+    std::wstring value(bytes / sizeof(wchar_t), L'\0');
+    if (!WinHttpQueryHeaders(request, WINHTTP_QUERY_CONTENT_LENGTH, WINHTTP_HEADER_NAME_BY_INDEX, value.data(), &bytes,
+                             WINHTTP_NO_HEADER_INDEX)) {
+        return 0;
+    }
+    value.resize(bytes / sizeof(wchar_t));
+    while (!value.empty() && value.back() == L'\0') {
+        value.pop_back();
+    }
+    try {
+        return std::stoull(value);
+    } catch (...) {
+        return 0;
+    }
 }
 
 bool streamHttp(const std::wstring& url, const std::function<bool(const BYTE*, DWORD)>& onData,
                 const std::function<void(std::uint64_t)>& onSize, const std::function<void()>& onAttempt, std::string& error)
 {
-    const std::string utf8Url = wideToUtf8(url);
+    std::wstring host;
+    std::wstring path;
+    INTERNET_PORT port = 0;
+    bool secure = false;
+    if (!crackHttpUrl(url, host, path, port, secure)) {
+        error = "The update URL is invalid.";
+        return false;
+    }
+
     const std::optional<std::string> proxy = systemProxyForUrl(url);
     std::string lastError;
     for (int attempt = 0; attempt < 2; ++attempt) {
@@ -223,45 +283,72 @@ bool streamHttp(const std::wstring& url, const std::function<bool(const BYTE*, D
         }
 
         onAttempt();
-        cpr::Session session;
-        session.SetUrl(cpr::Url{utf8Url});
-        session.SetRedirect(cpr::Redirect{true});
-        session.SetVerifySsl(cpr::VerifySsl{true});
-        session.SetHeaderCallback(cpr::HeaderCallback{[&](std::string_view header, intptr_t) {
-            const size_t separator = header.find(':');
-            if (separator == std::string_view::npos || lowercase(trim(std::string(header.substr(0, separator)))) != "content-length") {
-                return true;
-            }
-            try {
-                onSize(std::stoull(trim(std::string(header.substr(separator + 1)))));
-            } catch (...) {
-                onSize(0);
-            }
-            return true;
-        }});
-        session.SetWriteCallback(cpr::WriteCallback{[&](std::string_view data, intptr_t) {
-            return onData(reinterpret_cast<const BYTE*>(data.data()), static_cast<DWORD>(data.size()));
-        }});
-        if (useProxy) {
-            session.SetProxies(cpr::Proxies{{"http", *proxy}, {"https", *proxy}});
-        } else {
-            session.SetProxies(cpr::Proxies{{"http", ""}, {"https", ""}});
+        const std::wstring proxyName = useProxy ? utf8ToWide(*proxy) : std::wstring{};
+        InternetHandle session(WinHttpOpen(L"Launcher-Updater/1.0",
+                                           useProxy ? WINHTTP_ACCESS_TYPE_NAMED_PROXY : WINHTTP_ACCESS_TYPE_NO_PROXY,
+                                           useProxy ? proxyName.c_str() : WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0));
+        if (!session.get()) {
+            lastError = windowsErrorMessage(GetLastError());
+            continue;
+        }
+        WinHttpSetTimeouts(session.get(), 15000, 15000, 30000, 30000);
+
+        InternetHandle connection(WinHttpConnect(session.get(), host.c_str(), port, 0));
+        if (!connection.get()) {
+            lastError = windowsErrorMessage(GetLastError());
+            continue;
+        }
+        InternetHandle request(WinHttpOpenRequest(connection.get(), L"GET", path.c_str(), nullptr, WINHTTP_NO_REFERER,
+                                                  WINHTTP_DEFAULT_ACCEPT_TYPES, secure ? WINHTTP_FLAG_SECURE : 0));
+        if (!request.get()) {
+            lastError = windowsErrorMessage(GetLastError());
+            continue;
+        }
+        if (!WinHttpSendRequest(request.get(), WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0) ||
+            !WinHttpReceiveResponse(request.get(), nullptr)) {
+            lastError = windowsErrorMessage(GetLastError());
+            continue;
         }
 
-        const cpr::Response response = session.Get();
-        std::uint64_t totalSize = 0;
-        const auto contentLength = response.header.find("content-length");
-        if (contentLength != response.header.end()) {
-            try {
-                totalSize = std::stoull(contentLength->second);
-            } catch (...) {
-                totalSize = 0;
+        DWORD status = 0;
+        DWORD statusSize = sizeof(status);
+        if (!WinHttpQueryHeaders(request.get(), WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_HEADER_NAME_BY_INDEX,
+                                 &status, &statusSize, WINHTTP_NO_HEADER_INDEX)) {
+            lastError = windowsErrorMessage(GetLastError());
+            continue;
+        }
+        if (status != 200) {
+            lastError = "The update server returned HTTP " + std::to_string(status) + ".";
+            continue;
+        }
+
+        onSize(responseContentLength(request.get()));
+        bool receivedAll = true;
+        while (true) {
+            DWORD available = 0;
+            if (!WinHttpQueryDataAvailable(request.get(), &available)) {
+                lastError = windowsErrorMessage(GetLastError());
+                receivedAll = false;
+                break;
+            }
+            if (available == 0) {
+                break;
+            }
+            std::vector<BYTE> buffer(std::min<DWORD>(available, 64 * 1024));
+            DWORD received = 0;
+            if (!WinHttpReadData(request.get(), buffer.data(), static_cast<DWORD>(buffer.size()), &received)) {
+                lastError = windowsErrorMessage(GetLastError());
+                receivedAll = false;
+                break;
+            }
+            if (received > 0 && !onData(buffer.data(), received)) {
+                lastError = error.empty() ? "The update response could not be processed." : error;
+                receivedAll = false;
+                break;
             }
         }
-        onSize(totalSize);
 
-        lastError = responseError(response);
-        if (lastError.empty()) {
+        if (receivedAll) {
             return true;
         }
     }
