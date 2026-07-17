@@ -6,7 +6,7 @@ Use `main` as the integration branch. Create a short-lived branch for each chang
 
 Keep pull requests focused. Prefer rebasing or squash merging so the public history remains linear and each commit represents a complete change. Do not create synchronization branches for other remotes.
 
-By submitting a contribution, you agree to make that contribution available under the project's [PolyForm Noncommercial License 1.0.0](LICENSE).
+By submitting a contribution, you agree to make that contribution available under the project's [GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`).
 
 ## Quality Checks
 

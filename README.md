@@ -110,4 +110,4 @@ On first run, if no usable config exists, the app falls back to seed data from `
 
 ## License
 
-Launcher is available under the [PolyForm Noncommercial License 1.0.0](LICENSE). Noncommercial use is permitted; commercial use is not licensed. Third-party components and assets retain their own licenses as documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Launcher is free software licensed under the [GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`). Commercial use is permitted under the license terms. Modified versions that are distributed, or made available for users to interact with over a network, must provide the corresponding source as required by the AGPL. Third-party components and assets retain their own licenses as documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
