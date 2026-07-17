@@ -808,8 +808,11 @@ void Application::hideWindowGroup()
 {
     closeMainDockWindows(context_);
     hidePlatformWindows();
-    releaseMainDockBackgroundCache();
     window_->hideToTray();
+    // Refresh the hidden back buffer after clearing transient UI state. Otherwise
+    // ShowWindow may briefly present the last visible frame with stale selection.
+    frame();
+    releaseMainDockBackgroundCache();
     setProcessEfficiencyMode(true);
     trimProcessMemory();
 }
