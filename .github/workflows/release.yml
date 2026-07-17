@@ -39,17 +39,17 @@ jobs:
             exit 1
           fi
 
-      - name: Set up MSYS2 Clang
+      - name: Set up MSYS2 MinGW
         uses: msys2/setup-msys2@v2
         with:
-          msystem: CLANG64
+          msystem: MINGW64
           update: true
           install: >-
             git
             zip
-            mingw-w64-clang-x86_64-toolchain
-            mingw-w64-clang-x86_64-cmake
-            mingw-w64-clang-x86_64-ninja
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
 
       - name: Pull pinned public dependencies
         shell: msys2 {0}
@@ -62,7 +62,7 @@ jobs:
         run: >-
           cmake -S . -B "${BUILD_DIR}" -G Ninja
           -DCMAKE_BUILD_TYPE=Release
-          -DLAUNCHER_STATIC_RUNTIME=ON
+          -DLAUNCHER_STATIC_RUNTIME=OFF
           -DCMAKE_RC_COMPILER=windres
           -DCUSTOM_IMGUI_BUILD_TESTS=OFF
 
@@ -83,6 +83,9 @@ jobs:
           mkdir -p "dist/${package_name}"
           cp "${BUILD_DIR}/launcher.exe" "dist/${package_name}/"
           cp "${BUILD_DIR}/launcher_updater.exe" "dist/${package_name}/"
+          cp /mingw64/bin/libgcc_s_seh-1.dll "dist/${package_name}/"
+          cp /mingw64/bin/libstdc++-6.dll "dist/${package_name}/"
+          cp /mingw64/bin/libwinpthread-1.dll "dist/${package_name}/"
           cp -r "${BUILD_DIR}/assets" "dist/${package_name}/assets"
           [ ! -f LICENSE ] || cp LICENSE "dist/${package_name}/"
           [ ! -f THIRD_PARTY_NOTICES.md ] || cp THIRD_PARTY_NOTICES.md "dist/${package_name}/"

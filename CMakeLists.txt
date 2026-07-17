@@ -37,7 +37,16 @@ FetchContent_Declare(
 set(CPR_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(CPR_USE_SYSTEM_CURL OFF CACHE BOOL "" FORCE)
 set(CPR_USE_SYSTEM_LIB_PSL ON CACHE BOOL "" FORCE)
+set(BUILD_CURL_EXE OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_LIBCURL_DOCS OFF CACHE BOOL "" FORCE)
+set(BUILD_MISC_DOCS OFF CACHE BOOL "" FORCE)
 set(CURL_USE_LIBPSL OFF CACHE BOOL "" FORCE)
+set(CURL_USE_LIBSSH2 OFF CACHE BOOL "" FORCE)
+set(CURL_BROTLI OFF CACHE STRING "" FORCE)
+set(CURL_ZSTD OFF CACHE STRING "" FORCE)
+set(USE_LIBIDN2 OFF CACHE BOOL "" FORCE)
+set(USE_NGHTTP2 OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(cpr)
 
 add_library(launcher_core STATIC
@@ -335,6 +344,6 @@ if(LAUNCHER_STATIC_RUNTIME AND MINGW)
             launcher_sample_toolbox_plugin
             launcher_sample_native_plugin
             launcher_core_tests)
-        target_link_options(${target_name} PRIVATE -static)
+        target_link_options(${target_name} PRIVATE -static-libgcc -static-libstdc++)
     endforeach()
 endif()
