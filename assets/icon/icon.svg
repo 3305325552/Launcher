@@ -1,0 +1,8 @@
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+
+ <g>
+  <title>Layer 1</title>
+  <rect style="--darkreader-inline-fill: var(--darkreader-text-ffffff, #e8e6e3); --darkreader-inline-stroke: var(--darkreader-text-000000, #e8e6e3);" id="svg_2" height="255" width="85" y="134" x="136" stroke="#000" fill="#fff"/>
+  <rect style="--darkreader-inline-fill: var(--darkreader-text-ffffff, #e8e6e3); --darkreader-inline-stroke: var(--darkreader-text-000000, #e8e6e3);" id="svg_3" height="85" width="155" y="304" x="246" stroke="#000" fill="#fff"/>
+ </g>
+</svg>

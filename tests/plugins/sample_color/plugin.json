@@ -1,0 +1,26 @@
+{
+  "id": "dev.sample.color",
+  "name": "Sample Color Plugin",
+  "version": "0.1.0",
+  "author": "Launcher",
+  "description": "Test plugin for parsing hex colors and copy actions.",
+  "entry": "launcher_sample_toolbox_plugin.exe",
+  "lifecycle": "on-demand",
+  "enabled": true,
+  "capabilities": ["search", "actions"],
+  "settings": [
+    {
+      "id": "format",
+      "label": "Display Format",
+      "type": "choice",
+      "default": "rgb",
+      "choices": ["rgb", "hex", "both"]
+    },
+    {
+      "id": "uppercaseHex",
+      "label": "Uppercase Hex",
+      "type": "bool",
+      "default": "true"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "dev.sample.calc",
+  "name": "Sample Calculator Plugin",
+  "version": "0.1.0",
+  "author": "Launcher",
+  "description": "Test plugin for simple calculator search results.",
+  "entry": "launcher_sample_toolbox_plugin.exe",
+  "lifecycle": "on-demand",
+  "enabled": true,
+  "capabilities": ["search", "actions"],
+  "settings": [
+    {
+      "id": "precision",
+      "label": "Precision",
+      "type": "number",
+      "default": "2"
+    },
+    {
+      "id": "copyPrefix",
+      "label": "Copy Prefix",
+      "type": "text",
+      "default": "Result"
+    }
+  ]
+}

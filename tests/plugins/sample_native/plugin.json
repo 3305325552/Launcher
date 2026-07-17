@@ -1,0 +1,12 @@
+{
+  "id": "dev.sample.native",
+  "name": "Sample Native Task Plugin",
+  "version": "0.1.0",
+  "author": "Launcher",
+  "description": "Native DLL plugin for task API smoke testing.",
+  "entry": "launcher_sample_native_plugin.dll",
+  "type": "native",
+  "lifecycle": "on-demand",
+  "enabled": true,
+  "capabilities": ["search", "actions", "events", "tasks"]
+}

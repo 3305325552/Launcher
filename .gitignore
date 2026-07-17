@@ -1,0 +1,12 @@
+build/
+out/
+.vs/
+.idea/
+.agents/
+.codex/
+*.user
+*.suo
+*.log
+CMakeUserPresets.json
+compile_commands.json
+.codex_tmp_MayeNano/

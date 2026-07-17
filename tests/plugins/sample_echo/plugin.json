@@ -1,0 +1,38 @@
+{
+  "id": "dev.sample.echo",
+  "name": "Sample Echo Plugin",
+  "version": "0.1.0",
+  "author": "Launcher",
+  "description": "Test plugin for search results, actions, events, and settings.",
+  "entry": "launcher_sample_echo_plugin.exe",
+  "lifecycle": "on-demand",
+  "enabled": true,
+  "capabilities": ["search", "actions", "events"],
+  "settings": [
+    {
+      "id": "prefix",
+      "label": "Title Prefix",
+      "type": "text",
+      "default": "Echo"
+    },
+    {
+      "id": "mode",
+      "label": "Mode",
+      "type": "choice",
+      "default": "normal",
+      "choices": ["normal", "verbose", "compact"]
+    },
+    {
+      "id": "includeTimestamp",
+      "label": "Include Timestamp",
+      "type": "bool",
+      "default": "false"
+    },
+    {
+      "id": "scoreBoost",
+      "label": "Score Boost",
+      "type": "number",
+      "default": "0"
+    }
+  ]
+}

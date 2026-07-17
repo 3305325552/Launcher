@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "id": "dark",
+  "name": "Default Dark",
+  "author": "Launcher",
+  "dark": true,
+  "window": {
+    "transparent": false,
+    "opacity": 100,
+    "transparentForAll": false,
+    "secondaryOpacity": 100
+  },
+  "popup": {
+    "opacity": 100
+  },
+  "background": {
+    "enabled": false,
+    "image": "",
+    "mode": 0,
+    "opacity": 100
+  },
+  "colors": {
+    "global_text": "#E0E0E0FF",
+    "global_text_disabled": "#969696FF",
+    "global_separator": "#616161FF",
+    "ripple_color": "#8CB2FF5C",
+    "content_background": "#2A2A2AFF",
+    "window_background": "#292929FF",
+    "child_background": "#292929FF",
+    "popup_background": "#333333FA",
+    "border": "#616161FF",
+    "window_outline": "#FFFFFF1F",
+    "popup_outline": "#FFFFFF2B",
+    "top_background": "#222222FF",
+    "top_button_hover": "#323232FF",
+    "top_button_active": "#3A3A3AFF",
+    "search_background": "#1C1C1CFF",
+    "left_background": "#1E1E1EFF",
+    "tab_background_hover": "#2A2A2AFF",
+    "tab_background_active": "#161616FF",
+    "frame_background": "#333333FF",
+    "frame_background_hover": "#424242FF",
+    "frame_background_active": "#525252FF",
+    "button_background": "#383838FF",
+    "button_background_hover": "#4D4D4DFF",
+    "button_background_active": "#5C5C5CFF",
+    "header_background": "#3D3D3DFF",
+    "header_background_hover": "#4D4D4DFF",
+    "header_background_active": "#5C5C5CFF"
+  },
+  "metrics": {
+    "window_rounding": 8.0,
+    "popup_rounding": 7.0,
+    "frame_rounding": 4.0,
+    "item_rounding": 6.0,
+    "category_rounding": 6.0,
+    "sidebar_rounding": 8.0,
+    "scrollbar_rounding": 999.0,
+    "scrollbar_size": 9.0,
+    "window_padding_x": 0.0,
+    "window_padding_y": 0.0,
+    "frame_padding_x": 8.0,
+    "frame_padding_y": 4.0,
+    "item_spacing_x": 8.0,
+    "item_spacing_y": 8.0,
+    "window_border_size": 0.0,
+    "frame_border_size": 0.0,
+    "window_outline_size": 1.0,
+    "popup_outline_size": 1.0
+  }
+}

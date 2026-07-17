@@ -1,0 +1,32 @@
+{
+  "id": "dev.sample.cli",
+  "name": "Sample CLI Preview Plugin",
+  "version": "0.1.0",
+  "author": "Launcher",
+  "description": "Test plugin for CLI-like argument preview and action logging.",
+  "entry": "launcher_sample_toolbox_plugin.exe",
+  "lifecycle": "on-demand",
+  "enabled": true,
+  "capabilities": ["search", "actions", "events"],
+  "settings": [
+    {
+      "id": "tool",
+      "label": "Tool",
+      "type": "choice",
+      "default": "echo",
+      "choices": ["echo", "ping", "git"]
+    },
+    {
+      "id": "workingDirectory",
+      "label": "Working Directory",
+      "type": "text",
+      "default": "."
+    },
+    {
+      "id": "dryRun",
+      "label": "Dry Run",
+      "type": "bool",
+      "default": "true"
+    }
+  ]
+}

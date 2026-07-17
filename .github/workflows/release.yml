@@ -1,0 +1,120 @@
+name: Release
+
+run-name: Release ${{ github.ref_name }}
+
+on:
+  push:
+    tags:
+      - "*.*.*"
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      BUILD_DIR: build/release
+      TAG_NAME: ${{ github.ref_name }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Validate release tag
+        if: github.event_name != 'workflow_dispatch'
+        shell: bash
+        run: |
+          tag_version="${TAG_NAME#v}"
+          project_version="$(sed -nE 's/.*project\(Launcher VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt)"
+          if [ -z "${project_version}" ] || [ "${tag_version}" != "${project_version}" ]; then
+            echo "Tag ${TAG_NAME} does not match CMake project version ${project_version}." >&2
+            exit 1
+          fi
+
+      - name: Pull pinned public dependencies
+        shell: bash
+        run: |
+          git submodule update --init --depth 1 third_party/imgui
+          git -C third_party/imgui submodule update --init --depth 1 third_party/imgui third_party/ImAnim
+
+      - name: Install MinGW toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            zip \
+            gcc-mingw-w64-x86-64-posix \
+            g++-mingw-w64-x86-64-posix \
+            binutils-mingw-w64-x86-64
+
+      - name: Configure
+        run: >-
+          cmake -S . -B "${BUILD_DIR}" -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc-posix
+          -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix
+          -DLAUNCHER_STATIC_RUNTIME=ON
+          -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres
+          -DCMAKE_SYSTEM_NAME=Windows
+          -DCUSTOM_IMGUI_BUILD_TESTS=OFF
+
+      - name: Build
+        run: cmake --build "${BUILD_DIR}" --parallel 2
+
+      - name: Test
+        run: ctest --test-dir "${BUILD_DIR}" --output-on-failure
+
+      - name: Package
+        run: |
+          version="${TAG_NAME#v}"
+          package_name="launcher-${version}-windows-x86_64"
+          rm -rf dist
+          mkdir -p "dist/${package_name}"
+          cp "${BUILD_DIR}/launcher.exe" "dist/${package_name}/"
+          cp "${BUILD_DIR}/launcher_updater.exe" "dist/${package_name}/"
+          cp -r "${BUILD_DIR}/assets" "dist/${package_name}/assets"
+          [ ! -f LICENSE ] || cp LICENSE "dist/${package_name}/"
+          [ ! -f THIRD_PARTY_NOTICES.md ] || cp THIRD_PARTY_NOTICES.md "dist/${package_name}/"
+          (cd dist && zip -r "${package_name}.zip" "${package_name}")
+          (cd dist && sha256sum "${package_name}.zip" > SHA256SUMS.txt)
+
+      - name: Generate release notes
+        if: github.event_name != 'workflow_dispatch'
+        shell: bash
+        run: |
+          previous_tag="$(git tag --merged "${GITHUB_SHA}" --sort=-version:refname | grep -Fxv "${TAG_NAME}" | head -n 1 || true)"
+          if [ -n "${previous_tag}" ]; then
+            git log --no-merges --format='- %s' "${previous_tag}..${GITHUB_SHA}" > dist/RELEASE_NOTES.md
+          else
+            git log --no-merges --format='- %s' "${GITHUB_SHA}" > dist/RELEASE_NOTES.md
+          fi
+          [ -s dist/RELEASE_NOTES.md ] || echo "- Maintenance release" > dist/RELEASE_NOTES.md
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher-${{ github.ref_name }}-windows-x86_64
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: github.event_name != 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body_path: dist/RELEASE_NOTES.md
+          files: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
+          fail_on_unmatched_files: true
