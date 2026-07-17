@@ -230,6 +230,8 @@
   "Settings": "设置",
   "Shift + right-click opens Explorer menu": "Shift + 右键打开资源管理器菜单",
   "Show Launcher": "显示 Launcher",
+  "Show menu shortcut hints": "显示菜单快捷键提示",
+  "Display keyboard shortcuts on context menu items.": "在右键菜单项目中显示键盘快捷键。",
   "Show Launcher and focus the search box directly.": "直接呼出 Launcher 并聚焦搜索框。",
   "Show run count, target, arguments, remarks, and other details when hovering an item.": "鼠标悬停项目时显示打开次数、目标、参数、备注等提示信息。",
   "Simplified Chinese": "简体中文",

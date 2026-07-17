@@ -513,6 +513,7 @@ void to_json(json& j, const AppSettings& settings)
              {"tooltipLastEditedAt", settings.tooltipLastEditedAt},
              {"tooltipLastRunAt", settings.tooltipLastRunAt},
              {"itemTooltipOpacity", settings.itemTooltipOpacity},
+             {"showMenuShortcutHints", settings.showMenuShortcutHints},
              {"runItemHidesMain", settings.runItemHidesMain},
              {"closeSearchAfterRun", settings.closeSearchAfterRun},
              {"hideSearchAfterMainClose", settings.hideSearchAfterMainClose},
@@ -600,6 +601,7 @@ void from_json(const json& j, AppSettings& settings)
     settings.tooltipLastEditedAt = j.value("tooltipLastEditedAt", false);
     settings.tooltipLastRunAt = j.value("tooltipLastRunAt", false);
     settings.itemTooltipOpacity = std::clamp(j.value("itemTooltipOpacity", 100), 0, 100);
+    settings.showMenuShortcutHints = j.value("showMenuShortcutHints", true);
     settings.runItemHidesMain = j.value("runItemHidesMain", false);
     settings.closeSearchAfterRun = j.value("closeSearchAfterRun", true);
     settings.hideSearchAfterMainClose = j.value("hideSearchAfterMainClose", true);

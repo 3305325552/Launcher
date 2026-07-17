@@ -113,12 +113,12 @@ UiPalette withPopupOpacity(UiPalette theme, int opacityPercent)
     return theme;
 }
 
-LightPopupStyle::LightPopupStyle(const UiPalette& theme, int opacityPercent)
+LightPopupStyle::LightPopupStyle(const UiPalette& theme, int opacityPercent, float minWidth, float itemSpacingX)
 {
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * std::clamp(opacityPercent, 0, 100) / 100.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 10.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f, 7.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(220.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(itemSpacingX, 7.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(minWidth, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, theme.popupRounding);
     ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, theme.popupOutlineSize);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, theme.popupOutlineSize);

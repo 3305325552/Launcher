@@ -10,7 +10,7 @@ UiPalette withPopupOpacity(UiPalette theme, int opacityPercent);
 
 class LightPopupStyle {
 public:
-    explicit LightPopupStyle(const UiPalette& theme, int opacityPercent = 100);
+    explicit LightPopupStyle(const UiPalette& theme, int opacityPercent = 100, float minWidth = 220.0f, float itemSpacingX = 10.0f);
     ~LightPopupStyle();
 
     LightPopupStyle(const LightPopupStyle&) = delete;

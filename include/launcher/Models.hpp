@@ -237,6 +237,7 @@ struct AppSettings {
     bool tooltipLastEditedAt = false;
     bool tooltipLastRunAt = false;
     int itemTooltipOpacity = 100;
+    bool showMenuShortcutHints = true;
     bool runItemHidesMain = false;
     bool closeSearchAfterRun = true;
     bool hideSearchAfterMainClose = true;

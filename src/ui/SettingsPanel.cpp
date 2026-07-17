@@ -529,6 +529,7 @@ bool drawSettingsSearchResults(int& activeTab)
         SettingsSearchEntry{2, tr("Theme Editor"), tr("Interface")},
         SettingsSearchEntry{2, tr("Animation speed"), tr("Interface")},
         SettingsSearchEntry{2, tr("Item icon size"), tr("Interface")},
+        SettingsSearchEntry{2, tr("Show menu shortcut hints"), tr("Interface")},
         SettingsSearchEntry{2, tr("Tooltip"), tr("Interface")},
         SettingsSearchEntry{3, tr("Smooth input"), tr("Search")},
         SettingsSearchEntry{3, tr("Search delay"), tr("Search")},
@@ -929,6 +930,10 @@ bool drawInterfacePage(AppContext& context)
     changed |= rowCheckbox(tr("Search"), &settings.showSearchButton);
     changed |= rowCheckbox(tr("Menu"), &settings.showMenuButton);
     changed |= rowCheckbox(tr("Close"), &settings.showCloseButton);
+
+    section(tr("Menu"));
+    changed |= rowCheckbox(tr("Show menu shortcut hints"), &settings.showMenuShortcutHints, 28.0f,
+                           tr("Display keyboard shortcuts on context menu items."));
 
     section(tr("Tooltip"));
     changed |= rowCheckbox(tr("Enable"), &settings.tooltipEnabled, 28.0f,

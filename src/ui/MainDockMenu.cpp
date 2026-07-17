@@ -15,6 +15,7 @@ namespace launcher {
 namespace {
 
 constexpr float kMenuRowRounding = 5.0f;
+bool gMenuShortcutHintsVisible = true;
 
 Category* selectedCategory(AppContext& context)
 {
@@ -54,13 +55,35 @@ void drawMenuRowBackground(ImDrawList* drawList, const UiPalette& theme, bool ac
 
 } // namespace
 
+void setMenuShortcutHintsVisible(bool visible)
+{
+    gMenuShortcutHintsVisible = visible;
+}
+
 bool menuItem(const UiPalette& theme, const char* icon, const char* label, const char* shortcut, bool selected, bool enabled)
 {
     const std::string fullLabel = icon && icon[0] ? std::string(icon) + "  " + label : std::string(label);
+    const char* visibleShortcut = gMenuShortcutHintsVisible ? shortcut : nullptr;
+    const float shortcutY = ImGui::GetCursorScreenPos().y;
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     drawList->ChannelsSplit(2);
     drawList->ChannelsSetCurrent(1);
-    const bool clicked = ImGui::MenuItem(fullLabel.c_str(), shortcut, selected, enabled);
+    if (visibleShortcut) {
+        ImVec4 hiddenShortcut = ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
+        hiddenShortcut.w = 0.0f;
+        ImGui::PushStyleColor(ImGuiCol_TextDisabled, hiddenShortcut);
+    }
+    const bool clicked = ImGui::MenuItem(fullLabel.c_str(), visibleShortcut, selected, enabled);
+    if (visibleShortcut) {
+        ImGui::PopStyleColor();
+        const ImVec2 shortcutSize = ImGui::CalcTextSize(visibleShortcut);
+        const float shortcutX = ImGui::GetItemRectMax().x - shortcutSize.x;
+        ImVec4 shortcutColor = ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
+        if (!enabled) {
+            shortcutColor.w *= ImGui::GetStyle().DisabledAlpha;
+        }
+        drawList->AddText(ImVec2(shortcutX, shortcutY), ImGui::ColorConvertFloat4ToU32(shortcutColor), visibleShortcut);
+    }
     const bool hovered = enabled && ImGui::IsItemHovered();
     drawList->ChannelsSetCurrent(0);
     drawMenuRowBackground(drawList, theme, hovered, false);

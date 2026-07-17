@@ -230,6 +230,8 @@
   "Settings": "Settings",
   "Shift + right-click opens Explorer menu": "Shift + right-click opens Explorer menu",
   "Show Launcher": "Show Launcher",
+  "Show menu shortcut hints": "Show menu shortcut hints",
+  "Display keyboard shortcuts on context menu items.": "Display keyboard shortcuts on context menu items.",
   "Show Launcher and focus the search box directly.": "Show Launcher and focus the search box directly.",
   "Show run count, target, arguments, remarks, and other details when hovering an item.": "Show run count, target, arguments, remarks, and other details when hovering an item.",
   "Simplified Chinese": "Simplified Chinese",

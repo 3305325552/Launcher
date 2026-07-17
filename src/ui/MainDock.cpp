@@ -3250,6 +3250,7 @@ void drawMainDock(AppContext& context)
     configureMainDockState(mainDockStateApi());
     resolvePendingItemSelectionClick(context);
     setLocale(context.persisted().settings.language);
+    setMenuShortcutHintsVisible(context.persisted().settings.showMenuShortcutHints);
     applyUiStyle(context.themes.active());
     gSession.theme = uiPalette(context.themes.active());
     const UpdateSnapshot updateSnapshot = context.updates.snapshot();

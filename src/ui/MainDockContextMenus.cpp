@@ -19,7 +19,7 @@ void drawContentMenu(const UiPalette& theme, AppContext& context, const ContentM
     const AppSettings& settings = context.persisted().settings;
     const int popupOpacity = context.themes.active().popupMenuOpacity;
     const UiPalette popupTheme = withPopupOpacity(theme, popupOpacity);
-    LightPopupStyle popupStyle(popupTheme, popupOpacity);
+    LightPopupStyle popupStyle(popupTheme, popupOpacity, 200.0f, 6.0f);
     const bool animatedPopup = ui_anim::pushPopupAppear("content-menu");
     if (ImGui::BeginPopup("content-menu")) {
         suppressCurrentViewportNativeBorder();
@@ -117,7 +117,7 @@ void drawItemMenu(const UiPalette& theme, AppContext& context, std::vector<Launc
     const AppSettings& settings = context.persisted().settings;
     const int popupOpacity = context.themes.active().popupMenuOpacity;
     const UiPalette popupTheme = withPopupOpacity(theme, popupOpacity);
-    LightPopupStyle popupStyle(popupTheme, popupOpacity);
+    LightPopupStyle popupStyle(popupTheme, popupOpacity, 200.0f, 6.0f);
     const bool animatedPopup = ui_anim::pushPopupAppear("item-menu");
     if (ImGui::BeginPopup("item-menu")) {
         suppressCurrentViewportNativeBorder();
