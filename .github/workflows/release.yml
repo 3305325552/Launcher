@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   release-windows:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 60
 
     env:
@@ -39,41 +39,43 @@ jobs:
             exit 1
           fi
 
+      - name: Set up MSYS2 Clang
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          update: true
+          install: >-
+            git
+            zip
+            mingw-w64-clang-x86_64-toolchain
+            mingw-w64-clang-x86_64-cmake
+            mingw-w64-clang-x86_64-ninja
+
       - name: Pull pinned public dependencies
-        shell: bash
+        shell: msys2 {0}
         run: |
           git submodule update --init --depth 1 third_party/imgui
           git -C third_party/imgui submodule update --init --depth 1 third_party/imgui third_party/ImAnim
 
-      - name: Install MinGW toolchain
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake \
-            ninja-build \
-            zip \
-            gcc-mingw-w64-x86-64-posix \
-            g++-mingw-w64-x86-64-posix \
-            binutils-mingw-w64-x86-64
-
       - name: Configure
+        shell: msys2 {0}
         run: >-
           cmake -S . -B "${BUILD_DIR}" -G Ninja
           -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc-posix
-          -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix
           -DLAUNCHER_STATIC_RUNTIME=ON
-          -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres
-          -DCMAKE_SYSTEM_NAME=Windows
+          -DCMAKE_RC_COMPILER=windres
           -DCUSTOM_IMGUI_BUILD_TESTS=OFF
 
       - name: Build
+        shell: msys2 {0}
         run: cmake --build "${BUILD_DIR}" --parallel 2
 
       - name: Test
+        shell: msys2 {0}
         run: ctest --test-dir "${BUILD_DIR}" --output-on-failure
 
       - name: Package
+        shell: msys2 {0}
         run: |
           version="${TAG_NAME#v}"
           package_name="launcher-${version}-windows-x86_64"
@@ -89,7 +91,7 @@ jobs:
 
       - name: Generate release notes
         if: github.event_name != 'workflow_dispatch'
-        shell: bash
+        shell: msys2 {0}
         run: |
           previous_tag="$(git tag --merged "${GITHUB_SHA}" --sort=-version:refname | grep -Fxv "${TAG_NAME}" | head -n 1 || true)"
           if [ -n "${previous_tag}" ]; then

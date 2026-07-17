@@ -62,7 +62,7 @@ std::string animatedBackgroundCacheKey(const std::filesystem::path& source, int 
     const auto size = std::filesystem::file_size(normalized, ec);
     const std::uintmax_t fileSize = ec ? 0 : size;
     const auto writeTime = std::filesystem::last_write_time(normalized, ec);
-    const auto ticks = ec ? 0 : writeTime.time_since_epoch().count();
+    const std::int64_t ticks = ec ? 0 : static_cast<std::int64_t>(writeTime.time_since_epoch().count());
     fps = std::clamp(fps, 1, 30);
     maxWidth = std::clamp(maxWidth, 240, 3840);
     quality = std::clamp(quality, 2, 31);
