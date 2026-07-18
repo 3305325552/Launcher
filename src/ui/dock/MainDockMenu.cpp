@@ -2,7 +2,7 @@
 
 #include "app/AppContext.hpp"
 #include "ui/common/Localization.hpp"
-#include "ui/dock/MainDockChrome.hpp"
+#include "ui/common/UiChrome.hpp"
 #include "ui/dock/MainDockState.hpp"
 #include "ui/common/UiAnimation.hpp"
 

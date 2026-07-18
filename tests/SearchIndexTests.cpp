@@ -1,4 +1,5 @@
 #include "core/ConfigStore.hpp"
+#include "core/LaunchParameterUtils.hpp"
 #include "core/LauncherService.hpp"
 #include "core/ModelActions.hpp"
 #include "core/SearchIndex.hpp"
@@ -515,6 +516,46 @@ int main()
     ok &= require(!cycleMove.changed, "moving a folder into its own descendant is rejected");
     ok &= require(cycleMoveState.categories[0].items.size() == 1 && cycleMoveState.categories[0].items[0].id == "parent-folder",
                   "rejected descendant move leaves source in place");
+
+    launcher::LaunchItem searchTemplate = item("search-template", "Search Template");
+    searchTemplate.target = "https://example.test/?q=%so-url%";
+    searchTemplate.arguments = "--query=%so%";
+    const launcher::LaunchItem resolvedSearch = launcher::launch_params::withSearchVariables(searchTemplate, "alpha beta");
+    ok &= require(resolvedSearch.target.string() == "https://example.test/?q=alpha+beta", "search URL variables are encoded");
+    ok &= require(resolvedSearch.arguments == "--query=alpha beta", "plain search variables preserve text");
+
+    launcher::InteractiveParam numberParam;
+    numberParam.kind = launcher::InteractiveParamKind::Number;
+    numberParam.defaultValue = "150";
+    numberParam.minValue = 0.0;
+    numberParam.maxValue = 100.0;
+    ok &= require(launcher::launch_params::defaultParamValue(numberParam) == "100", "numeric parameter defaults are clamped");
+
+    launcher::LaunchItem interactiveTemplate = item("interactive", "Interactive");
+    interactiveTemplate.interactive = true;
+    interactiveTemplate.target = "tool-{{profile}}";
+    interactiveTemplate.arguments = "--profile=%profile%";
+    launcher::InteractiveParam profileParam;
+    profileParam.id = "profile";
+    profileParam.defaultValue = "default";
+    interactiveTemplate.interactiveParams.push_back(profileParam);
+    const launcher::LaunchItem resolvedInteractive =
+        launcher::launch_params::withInteractiveValues(interactiveTemplate, {"work"});
+    ok &= require(resolvedInteractive.target.string() == "tool-work" && resolvedInteractive.arguments == "--profile=work",
+                  "interactive parameter placeholders are replaced");
+    ok &= require(launcher::launch_params::itemNeedsInteractivePrompt(interactiveTemplate), "interactive item requires a prompt");
+
+    launcher::launch_params::recordInteractiveHistory(interactiveTemplate, {"work"}, 10);
+    launcher::launch_params::recordInteractiveHistory(interactiveTemplate, {"work"}, 20);
+    launcher::launch_params::recordInteractiveHistory(interactiveTemplate, {"personal"}, 30);
+    const std::vector<launcher::launch_params::HistoryCandidate> history =
+        launcher::launch_params::interactiveHistoryCandidates(interactiveTemplate.interactiveParams[0], "wo");
+    ok &= require(history.size() == 2 && history[0].value == "work" && history[0].useCount == 2 && history[0].prefixMatch,
+                  "interactive history is ranked and marks prefix matches");
+    launcher::launch_params::removeInteractiveHistoryValue(interactiveTemplate, 0, "work");
+    ok &= require(interactiveTemplate.interactiveParams[0].history.size() == 1 &&
+                      interactiveTemplate.interactiveParams[0].history[0].value == "personal",
+                  "interactive history values can be removed");
 
     std::filesystem::remove_all(configPath.parent_path(), ec);
 

@@ -8,7 +8,7 @@
 #include "ui/common/MaterialIcons.hpp"
 #include "ui/dock/MainDockItemViews.hpp"
 #include "ui/dock/MainDockState.hpp"
-#include "ui/dock/MainDockWin32.hpp"
+#include "ui/platform/UiPlatform.hpp"
 #include "ui/common/UiAnimation.hpp"
 
 #include <imgui.h>

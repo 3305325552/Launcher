@@ -2,7 +2,7 @@
 
 #include "app/AppContext.hpp"
 #include "ui/common/Localization.hpp"
-#include "ui/dock/MainDockChrome.hpp"
+#include "ui/common/UiChrome.hpp"
 #include "ui/dock/MainDockDragPayload.hpp"
 #include "ui/dock/MainDockMenu.hpp"
 #include "ui/views/MarkdownView.hpp"

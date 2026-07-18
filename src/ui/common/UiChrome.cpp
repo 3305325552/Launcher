@@ -1,4 +1,4 @@
-#include "ui/dock/MainDockChrome.hpp"
+#include "ui/common/UiChrome.hpp"
 
 #include "ui/common/MaterialIcons.hpp"
 #include "ui/common/UiAnimation.hpp"

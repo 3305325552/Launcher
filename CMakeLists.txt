@@ -34,6 +34,7 @@ add_library(launcher_core STATIC
     src/core/AnimatedBackground.cpp
     src/core/ConfigStore.cpp
     src/core/GlobalFileIndex.cpp
+    src/core/LaunchParameterUtils.cpp
     src/core/LauncherService.cpp
     src/core/LocalVolumeFileProvider.cpp
     src/core/ModelActions.cpp
@@ -89,32 +90,57 @@ target_compile_definitions(launcher_platform_win32 PUBLIC
     WIN32_LEAN_AND_MEAN
 )
 
-add_library(launcher_ui STATIC
-    src/ui/settings/ConfigTransfer.cpp
-    src/ui/dock/MainDockCategoryRail.cpp
+set(LAUNCHER_UI_COMMON_SOURCES
+    src/ui/common/Localization.cpp
+    src/ui/common/MaterialIconRegistry.cpp
+    src/ui/common/UiAnimation.cpp
+    src/ui/common/UiChrome.cpp
+    src/ui/common/UiTheme.cpp
+)
+
+set(LAUNCHER_UI_PLATFORM_SOURCES
+    src/ui/platform/UiPlatform.cpp
+)
+
+set(LAUNCHER_UI_RENDERING_SOURCES
+    src/ui/rendering/MainDockResources.cpp
+)
+
+set(LAUNCHER_UI_DOCK_SOURCES
     src/ui/dock/MainDock.cpp
-    src/ui/dock/MainDockChrome.cpp
+    src/ui/dock/MainDockCategoryRail.cpp
     src/ui/dock/MainDockContextMenus.cpp
     src/ui/dock/MainDockDialogs.cpp
     src/ui/dock/MainDockGrid.cpp
     src/ui/dock/MainDockItemEditor.cpp
     src/ui/dock/MainDockItemViews.cpp
     src/ui/dock/MainDockMenu.cpp
+    src/ui/dock/MainDockNavigation.cpp
     src/ui/dock/MainDockNotes.cpp
-    src/ui/rendering/MainDockResources.cpp
-    src/ui/common/MaterialIconRegistry.cpp
-    src/ui/views/MarkdownView.cpp
     src/ui/dock/MainDockSearch.cpp
     src/ui/dock/MainDockState.cpp
-    src/ui/dock/MainDockWin32.cpp
-    src/ui/common/Localization.cpp
+)
+
+set(LAUNCHER_UI_SETTINGS_SOURCES
+    src/ui/settings/ConfigTransfer.cpp
     src/ui/settings/SettingsPages.cpp
     src/ui/settings/SettingsPanel.cpp
     src/ui/settings/SettingsWidgets.cpp
     src/ui/settings/ThemeEditor.cpp
-    src/ui/common/UiAnimation.cpp
-    src/ui/common/UiTheme.cpp
+)
+
+set(LAUNCHER_UI_VIEW_SOURCES
+    src/ui/views/MarkdownView.cpp
     src/ui/views/UserGuideView.cpp
+)
+
+add_library(launcher_ui STATIC
+    ${LAUNCHER_UI_COMMON_SOURCES}
+    ${LAUNCHER_UI_PLATFORM_SOURCES}
+    ${LAUNCHER_UI_RENDERING_SOURCES}
+    ${LAUNCHER_UI_DOCK_SOURCES}
+    ${LAUNCHER_UI_SETTINGS_SOURCES}
+    ${LAUNCHER_UI_VIEW_SOURCES}
 )
 
 target_include_directories(launcher_ui PUBLIC
@@ -312,11 +338,29 @@ add_executable(launcher_core_tests
     tests/SearchIndexTests.cpp
 )
 
+add_executable(launcher_ui_logic_tests
+    tests/MainDockNavigationTests.cpp
+    src/ui/dock/MainDockNavigation.cpp
+)
+
 target_link_libraries(launcher_core_tests PRIVATE
     launcher_core
 )
 
+target_include_directories(launcher_ui_logic_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
 add_test(NAME launcher_core_tests COMMAND launcher_core_tests)
+add_test(NAME launcher_ui_logic_tests COMMAND launcher_ui_logic_tests)
+
+add_test(
+    NAME launcher_ui_dependency_tests
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/UiDependencyTests.cmake
+)
 
 if(LAUNCHER_STATIC_RUNTIME AND MINGW)
     foreach(target_name
@@ -325,7 +369,8 @@ if(LAUNCHER_STATIC_RUNTIME AND MINGW)
             launcher_sample_echo_plugin
             launcher_sample_toolbox_plugin
             launcher_sample_native_plugin
-            launcher_core_tests)
+            launcher_core_tests
+            launcher_ui_logic_tests)
         target_link_options(${target_name} PRIVATE -static-libgcc -static-libstdc++)
     endforeach()
 endif()

@@ -3,10 +3,9 @@
 #include "app/AppContext.hpp"
 #include "platform/SystemIntegration.hpp"
 #include "ui/common/Localization.hpp"
-#include "ui/dock/MainDockChrome.hpp"
+#include "ui/common/UiChrome.hpp"
 #include "ui/views/MarkdownView.hpp"
 #include "ui/common/MaterialIcons.hpp"
-#include "ui/common/UiAnimation.hpp"
 
 #include <windows.h>
 #include <imgui.h>

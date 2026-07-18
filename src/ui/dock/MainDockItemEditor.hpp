@@ -3,6 +3,7 @@
 #include "launcher/Models.hpp"
 #include "ui/common/UiTheme.hpp"
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

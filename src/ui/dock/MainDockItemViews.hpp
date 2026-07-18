@@ -1,12 +1,13 @@
 #pragma once
 
+#include "launcher/AppSettings.hpp"
 #include "launcher/Models.hpp"
+#include "ui/dock/MainDockCallbacks.hpp"
 #include "ui/common/UiTheme.hpp"
 
 #include <imgui.h>
 #include <imgui_internal.h>
 
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -17,20 +18,20 @@ struct AppContext;
 float itemViewTitleRowHeight(const LaunchItem& item);
 
 struct ItemViewApi {
-    std::function<bool(const LaunchItem&)> isItemSelected;
-    std::function<void(AppContext&, const std::vector<LaunchItem>&, int)> handleItemSelectionClick;
-    std::function<void(AppContext&, const LaunchItem&)> selectSingle;
-    std::function<void(AppContext&, const LaunchItem&)> enterVirtualFolder;
-    std::function<void(AppContext&, LaunchItem&, int)> runItem;
-    std::function<void(const UiPalette&, AppContext&, std::vector<LaunchItem>&, int)> drawItemMenu;
-    std::function<void(const UiPalette&, const AppSettings&, const LaunchItem&, const ImRect&)> drawItemTooltip;
-    std::function<void(const LaunchItem&, const ImVec2&, float)> drawLaunchIcon;
-    std::function<void(ImDrawList*, const LaunchItem&, const ImVec2&, float)> drawLaunchIconOnList;
-    std::function<std::string(const ImGuiPayload*)> dragPayloadId;
-    std::function<void(const AppContext&, const std::string&)> captureDragItemIds;
-    std::function<void(const std::string&, const std::function<void()>&)> triggerAfterDragHover;
-    std::function<bool(const std::string&)> dragHoverPending;
-    std::function<void(const LaunchItem&)> showFileProperties;
+    main_dock::Callback<bool(const LaunchItem&)> isItemSelected = nullptr;
+    main_dock::Callback<void(AppContext&, const std::vector<LaunchItem>&, int)> handleItemSelectionClick = nullptr;
+    main_dock::Callback<void(AppContext&, const LaunchItem&)> selectSingle = nullptr;
+    main_dock::Callback<void(AppContext&, const LaunchItem&)> enterVirtualFolder = nullptr;
+    main_dock::Callback<void(AppContext&, LaunchItem&, int)> runItem = nullptr;
+    main_dock::Callback<void(const UiPalette&, AppContext&, std::vector<LaunchItem>&, int)> drawItemMenu = nullptr;
+    main_dock::Callback<void(const UiPalette&, const AppSettings&, const LaunchItem&, const ImRect&)> drawItemTooltip = nullptr;
+    main_dock::Callback<void(const LaunchItem&, const ImVec2&, float)> drawLaunchIcon = nullptr;
+    main_dock::Callback<void(ImDrawList*, const LaunchItem&, const ImVec2&, float)> drawLaunchIconOnList = nullptr;
+    main_dock::Callback<std::string(const ImGuiPayload*)> dragPayloadId = nullptr;
+    main_dock::Callback<void(const AppContext&, const std::string&)> captureDragItemIds = nullptr;
+    main_dock::Callback<void(const std::string&, const main_dock::DeferredCallback&)> triggerAfterDragHover = nullptr;
+    main_dock::Callback<bool(const std::string&)> dragHoverPending = nullptr;
+    main_dock::Callback<void(const LaunchItem&)> showFileProperties = nullptr;
 };
 
 void drawTitleRow(const UiPalette& theme, AppContext& context, const ItemViewApi& api, std::vector<LaunchItem>& items, int itemIndex,

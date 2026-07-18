@@ -1,13 +1,13 @@
 #pragma once
 
-#include "launcher/Models.hpp"
-
 #include <windows.h>
 
 #include <filesystem>
 #include <string>
 
 namespace launcher {
+
+struct LaunchItem;
 
 std::filesystem::path appFolder();
 HWND mainWindowHandle();

@@ -2,9 +2,10 @@
 
 #include "app/AppContext.hpp"
 #include "ui/common/Localization.hpp"
-#include "ui/dock/MainDockChrome.hpp"
+#include "ui/common/UiChrome.hpp"
 #include "ui/common/UiAnimation.hpp"
 
+#include <windows.h>
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
 
@@ -500,6 +501,92 @@ void drawTaskPlannerWindow(AppContext& context, const ThemeDefinition& themeDefi
         }
     }
     ImGui::End();
+}
+
+void drawUpdateDialog(AppContext& context, const UiPalette& theme, bool& showUpdateDialog)
+{
+    if (!showUpdateDialog) {
+        return;
+    }
+
+    setupManagedWindow("LauncherManagedUpdates");
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(520.0f, 390.0f), ImGuiCond_Appearing);
+    ManagedWindowStyle windowStyle(theme);
+
+    bool open = true;
+    if (!ImGui::Begin("Check Updates###update-dialog", &open,
+                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize |
+                          ImGuiWindowFlags_NoSavedSettings)) {
+        ImGui::End();
+        if (!open) {
+            showUpdateDialog = false;
+        }
+        return;
+    }
+    applyManagedViewportChrome(ImGui::GetWindowViewport()->PlatformHandleRaw, context.themes.active(), theme);
+    drawManagedTitleBar(theme, tr("Check Updates"), open);
+    ImGui::SetCursorPos(ImVec2(18.0f, kUiTitleHeight + 16.0f));
+    ImGui::BeginChild("update-content", ImVec2(-18.0f, -18.0f), false);
+
+    const UpdateSnapshot update = context.updates.snapshot();
+    ImGui::Text("%s: %s", tr("Current version"), update.currentVersion.c_str());
+    if (!update.latestVersion.empty()) {
+        ImGui::SameLine();
+        ImGui::Text("%s: %s", tr("Latest version"), update.latestVersion.c_str());
+    }
+    ImGui::Separator();
+
+    switch (update.state) {
+    case UpdateState::Idle:
+        ImGui::TextUnformatted(tr("Ready to check for updates."));
+        if (ImGui::Button(tr("Check Now"))) context.updates.checkForUpdates();
+        break;
+    case UpdateState::Checking: ImGui::TextUnformatted(tr("Checking for updates...")); break;
+    case UpdateState::UpToDate:
+        ImGui::TextUnformatted(tr("You are using the latest version."));
+        if (ImGui::Button(tr("Check Again"))) context.updates.checkForUpdates();
+        break;
+    case UpdateState::Available:
+        ImGui::TextUnformatted(tr("A new verified update is available."));
+        if (ImGui::Button(tr("Download Update"))) context.updates.downloadUpdate();
+        break;
+    case UpdateState::Downloading:
+        ImGui::TextUnformatted(tr("Downloading and verifying update..."));
+        ImGui::ProgressBar(static_cast<float>(update.downloadPercent) / 100.0f, ImVec2(-1.0f, 0.0f),
+                           (std::to_string(update.downloadPercent) + "%").c_str());
+        break;
+    case UpdateState::ReadyToInstall:
+        ImGui::TextUnformatted(tr("Update verified and ready to install."));
+        if (ImGui::Button(tr("Restart and Install")) && context.updates.installDownloadedUpdate()) {
+            if (auto* hwnd = static_cast<HWND>(ImGui::GetMainViewport()->PlatformHandleRaw)) {
+                PostMessageW(hwnd, WM_COMMAND, 3002, 0);
+            }
+        }
+        break;
+    case UpdateState::Installing: ImGui::TextUnformatted(tr("Restarting to install update...")); break;
+    case UpdateState::Failed:
+        ImGui::TextUnformatted(tr("Update failed."));
+        ImGui::TextWrapped("%s", update.message.c_str());
+        if (ImGui::Button(tr("Try Again"))) context.updates.checkForUpdates();
+        break;
+    }
+
+    if (!update.releaseNotes.empty()) {
+        ImGui::Separator();
+        ImGui::TextUnformatted(tr("Release notes"));
+        ImGui::BeginChild("update-release-notes", ImVec2(-1.0f, 130.0f), true);
+        ImGui::TextWrapped("%s", update.releaseNotes.c_str());
+        ImGui::EndChild();
+    }
+    ImGui::Separator();
+    if (ImGui::Button(tr("Close"))) open = false;
+    ImGui::EndChild();
+    ImGui::End();
+    if (!open) {
+        showUpdateDialog = false;
+    }
 }
 
 } // namespace launcher

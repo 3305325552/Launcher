@@ -3,6 +3,7 @@
 #include "launcher/Models.hpp"
 #include "ui/dock/MainDockDialogs.hpp"
 
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>

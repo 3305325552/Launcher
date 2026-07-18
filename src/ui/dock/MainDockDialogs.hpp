@@ -1,5 +1,6 @@
 #pragma once
 
+#include "launcher/ThemeTypes.hpp"
 #include "ui/common/UiTheme.hpp"
 
 #include <string>
@@ -21,5 +22,6 @@ void drawBuildInfoPopup(const ThemeDefinition& themeDefinition, const UiPalette&
 void drawDeleteConfirmPopup(const UiPalette& theme, AppContext& context, DeleteConfirmState state,
                             void (*deletePendingItemsFn)(AppContext&));
 void drawTaskPlannerWindow(AppContext& context, const ThemeDefinition& themeDefinition, const UiPalette& theme, bool& showTaskPlanner);
+void drawUpdateDialog(AppContext& context, const UiPalette& theme, bool& showUpdateDialog);
 
 } // namespace launcher

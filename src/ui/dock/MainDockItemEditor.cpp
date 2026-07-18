@@ -2,8 +2,8 @@
 
 #include "app/AppContext.hpp"
 #include "ui/common/Localization.hpp"
-#include "ui/dock/MainDockChrome.hpp"
-#include "ui/dock/MainDockWin32.hpp"
+#include "ui/common/UiChrome.hpp"
+#include "ui/platform/UiPlatform.hpp"
 #include "ui/common/UiAnimation.hpp"
 
 #include <imgui.h>

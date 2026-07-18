@@ -3,7 +3,7 @@
 #include "app/AppContext.hpp"
 #include "core/StringEncoding.hpp"
 #include "ui/common/Localization.hpp"
-#include "ui/dock/MainDockWin32.hpp"
+#include "ui/platform/UiPlatform.hpp"
 
 #include <windows.h>
 

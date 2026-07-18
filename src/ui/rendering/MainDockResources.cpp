@@ -2,7 +2,7 @@
 
 #include "app/AppContext.hpp"
 #include "core/AnimatedBackground.hpp"
-#include "ui/dock/MainDockWin32.hpp"
+#include "ui/platform/UiPlatform.hpp"
 #include "ui/common/UiTheme.hpp"
 
 #include <windows.h>

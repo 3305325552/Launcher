@@ -4,7 +4,7 @@
 #include "core/AnimatedBackground.hpp"
 #include "core/StringEncoding.hpp"
 #include "ui/common/Localization.hpp"
-#include "ui/dock/MainDockChrome.hpp"
+#include "ui/common/UiChrome.hpp"
 #include "ui/common/UiAnimation.hpp"
 #include "ui/common/UiTheme.hpp"
 

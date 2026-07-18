@@ -1,11 +1,13 @@
 #pragma once
 
 #include "launcher/Models.hpp"
+#include "ui/dock/MainDockCallbacks.hpp"
 #include "ui/dock/MainDockContextMenus.hpp"
 #include "ui/dock/MainDockItemViews.hpp"
 #include "ui/common/UiTheme.hpp"
 
-#include <functional>
+#include <imgui.h>
+
 #include <string>
 #include <vector>
 
@@ -19,19 +21,19 @@ struct MainDockGridState {
 };
 
 struct MainDockGridApi {
-    std::function<std::vector<LaunchItem>*(AppContext&)> currentItems;
-    std::function<std::vector<LaunchItem>*(AppContext&, const std::vector<std::string>&)> itemsForFolderStack;
-    std::function<void(AppContext&)> clearSelection;
-    std::function<void()> requestHideMainWindow;
-    std::function<int(const std::vector<LaunchItem>&, const std::string&)> itemIndexById;
-    std::function<bool(AppContext&, const std::string&, std::vector<LaunchItem>&, int)> moveItemByIdToList;
-    std::function<bool(AppContext&, const std::vector<std::string>&, std::vector<LaunchItem>&, int)> moveItemIdsToList;
-    std::function<const LaunchItem*(AppContext&, const std::string&)> findItemById;
-    std::function<std::string(const ImGuiPayload*)> dragPayloadId;
-    std::function<std::vector<std::string>(const AppContext&, const std::string&)> dragItemIds;
-    std::function<void(const std::string&, const std::function<void()>&)> triggerAfterDragHover;
-    std::function<bool(const std::string&)> dragHoverPending;
-    std::function<void(const UiPalette&, AppContext&, const ContentMenuState&, const ContentMenuApi&)> drawContentMenu;
+    main_dock::Callback<std::vector<LaunchItem>*(AppContext&)> currentItems = nullptr;
+    main_dock::Callback<std::vector<LaunchItem>*(AppContext&, const std::vector<std::string>&)> itemsForFolderStack = nullptr;
+    main_dock::Callback<void(AppContext&)> clearSelection = nullptr;
+    main_dock::Callback<void()> requestHideMainWindow = nullptr;
+    main_dock::Callback<int(const std::vector<LaunchItem>&, const std::string&)> itemIndexById = nullptr;
+    main_dock::Callback<bool(AppContext&, const std::string&, std::vector<LaunchItem>&, int)> moveItemByIdToList = nullptr;
+    main_dock::Callback<bool(AppContext&, const std::vector<std::string>&, std::vector<LaunchItem>&, int)> moveItemIdsToList = nullptr;
+    main_dock::Callback<LaunchItem*(AppContext&, const std::string&)> findItemById = nullptr;
+    main_dock::Callback<std::string(const ImGuiPayload*)> dragPayloadId = nullptr;
+    main_dock::Callback<std::vector<std::string>(const AppContext&, const std::string&)> dragItemIds = nullptr;
+    main_dock::Callback<void(const std::string&, const main_dock::DeferredCallback&)> triggerAfterDragHover = nullptr;
+    main_dock::Callback<bool(const std::string&)> dragHoverPending = nullptr;
+    main_dock::Callback<void(const UiPalette&, AppContext&, const ContentMenuState&, const ContentMenuApi&)> drawContentMenu = nullptr;
     ContentMenuApi contentMenuApi;
     ContentMenuState (*contentMenuState)() = nullptr;
     ItemViewApi itemViewApi;

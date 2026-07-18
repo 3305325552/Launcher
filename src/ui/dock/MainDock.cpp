@@ -1,23 +1,26 @@
 #include "ui/dock/MainDock.hpp"
 
 #include "app/AppContext.hpp"
+#include "core/LaunchParameterUtils.hpp"
 #include "core/ModelActions.hpp"
 #include "launcher/AppIdentity.hpp"
 #include "ui/settings/ConfigTransfer.hpp"
 #include "ui/common/Localization.hpp"
 #include "ui/dock/MainDockCategoryRail.hpp"
-#include "ui/dock/MainDockChrome.hpp"
+#include "ui/common/UiChrome.hpp"
 #include "ui/dock/MainDockContextMenus.hpp"
 #include "ui/dock/MainDockDialogs.hpp"
 #include "ui/dock/MainDockGrid.hpp"
 #include "ui/dock/MainDockItemEditor.hpp"
 #include "ui/dock/MainDockItemViews.hpp"
 #include "ui/dock/MainDockMenu.hpp"
+#include "ui/dock/MainDockNavigation.hpp"
 #include "ui/dock/MainDockNotes.hpp"
+#include "ui/dock/MainDockUiState.hpp"
 #include "ui/rendering/MainDockResources.hpp"
 #include "ui/dock/MainDockSearch.hpp"
 #include "ui/dock/MainDockState.hpp"
-#include "ui/dock/MainDockWin32.hpp"
+#include "ui/platform/UiPlatform.hpp"
 #include "ui/common/MaterialIcons.hpp"
 #include "ui/settings/SettingsPanel.hpp"
 #include "ui/settings/ThemeEditor.hpp"
@@ -46,7 +49,6 @@
 #include <ctime>
 #include <filesystem>
 #include <functional>
-#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -58,72 +60,21 @@ namespace {
 
 using model_actions::findItemInList;
 using model_actions::itemIndexById;
+using launch_params::HistoryCandidate;
+using launch_params::defaultParamValue;
+using launch_params::effectiveParamId;
+using launch_params::interactiveHistoryCandidates;
+using launch_params::interactiveParamKey;
+using launch_params::itemNeedsInteractivePrompt;
+using launch_params::removeInteractiveHistoryValue;
+using launch_params::withInteractiveValues;
+using launch_params::withSearchVariables;
 
 constexpr float kTitleHeight = kUiTitleHeight;
 constexpr float kSearchHeight = 36.0f;
 constexpr float kRailWidth = 164.0f;
 constexpr int kMinWindowWidth = 720;
 constexpr int kMinWindowHeight = 520;
-constexpr size_t kMaxInteractiveParamHistory = 32;
-constexpr int kMaxInteractiveHistorySuggestions = 8;
-
-struct InteractiveHistoryCandidate {
-    std::string value;
-    int useCount = 0;
-    std::int64_t lastUsedAt = 0;
-    int sourceIndex = -1;
-    bool prefixMatch = false;
-};
-
-struct MainDockSession {
-    bool focusSearch = false;
-    bool searchOpen = false;
-    bool showItemEditor = false;
-    bool openItemEditorPopup = false;
-    bool openSettingsNextFrame = false;
-    int editingCategory = -1;
-    int editingItem = -1;
-    std::string editingFolderId;
-    LaunchItem editingDraft;
-    std::string editingTarget;
-    std::string editingStartDir;
-    std::string editingRemark;
-    std::string editingIcon;
-    bool showInteractiveRun = false;
-    bool openInteractiveRunPopup = false;
-    LaunchItem interactiveRunItem;
-    std::string interactiveRunItemId;
-    std::string interactiveRunSearchText;
-    int interactiveRunShowCommand = SW_SHOWNORMAL;
-    std::vector<std::string> interactiveRunValues;
-    std::string interactiveHistoryParamKey;
-    int interactiveHistorySelected = -1;
-    bool searchSubmit = false;
-    int searchSelected = 0;
-    int searchMove = 0;
-    int searchPageMove = 0;
-    std::string searchQueryText;
-    double searchEditedAt = 0.0;
-    bool searchCursorEndRequested = false;
-    SearchResultsCache searchResultsCache;
-    bool showBuildInfo = false;
-    bool showTaskPlanner = false;
-    bool showUpdateDialog = false;
-    std::string automaticUpdatePromptVersion;
-    bool openCategoryEditorPopup = false;
-    int editingCategoryIndex = -1;
-    std::string editingCategoryName;
-    std::string editingCategoryIconName;
-    std::string editingCategoryIconColor;
-    std::string categoryIconFilter;
-    bool draggingMainWindow = false;
-    ImVec2 mainDragStartMouse{};
-    RECT mainDragStartRect{};
-    bool resetMainDockScroll = false;
-    bool themeEditorWasOpen = false;
-    bool useDefaultIcons = false;
-    UiPalette theme = uiPalette(ThemeDefinition{});
-};
 
 MainDockSession gSession;
 MainDockResources gResources;
@@ -181,190 +132,6 @@ std::string timeText(std::int64_t value)
     return buffer;
 }
 
-std::string replaceAll(std::string value, const std::string& from, const std::string& to)
-{
-    if (from.empty()) {
-        return value;
-    }
-    std::size_t pos = 0;
-    while ((pos = value.find(from, pos)) != std::string::npos) {
-        value.replace(pos, from.size(), to);
-        pos += to.size();
-    }
-    return value;
-}
-
-std::string urlEncode(const std::string& value)
-{
-    static constexpr char hex[] = "0123456789ABCDEF";
-    std::string encoded;
-    for (unsigned char ch : value) {
-        if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' || ch == '_' || ch == '.' ||
-            ch == '~') {
-            encoded.push_back(static_cast<char>(ch));
-        } else if (ch == ' ') {
-            encoded.push_back('+');
-        } else {
-            encoded.push_back('%');
-            encoded.push_back(hex[ch >> 4]);
-            encoded.push_back(hex[ch & 0x0f]);
-        }
-    }
-    return encoded;
-}
-
-LaunchItem withSearchVariables(const LaunchItem& item, const std::string& searchText)
-{
-    LaunchItem result = item;
-    const std::string encoded = urlEncode(searchText);
-    result.target = replaceAll(replaceAll(result.target.string(), "%so%", searchText), "%so-url%", encoded);
-    result.startDirectory = replaceAll(replaceAll(result.startDirectory.string(), "%so%", searchText), "%so-url%", encoded);
-    result.arguments = replaceAll(replaceAll(result.arguments, "%so%", searchText), "%so-url%", encoded);
-    result.icon = replaceAll(replaceAll(result.icon, "%so%", searchText), "%so-url%", encoded);
-    return result;
-}
-
-std::string effectiveParamId(const InteractiveParam& param, int index)
-{
-    if (!param.id.empty()) {
-        return param.id;
-    }
-    return "param" + std::to_string(index + 1);
-}
-
-std::string defaultParamValue(const InteractiveParam& param)
-{
-    if (param.kind == InteractiveParamKind::Choice) {
-        if (!param.defaultValue.empty()) {
-            return param.defaultValue;
-        }
-        return param.choices.empty() ? std::string{} : param.choices.front();
-    }
-    if (param.kind == InteractiveParamKind::Number) {
-        double value = param.defaultValue.empty() ? param.minValue : std::strtod(param.defaultValue.c_str(), nullptr);
-        if (param.maxValue >= param.minValue) {
-            value = std::clamp(value, param.minValue, param.maxValue);
-        }
-        char buffer[64]{};
-        std::snprintf(buffer, sizeof(buffer), "%.6g", value);
-        return buffer;
-    }
-    return param.defaultValue;
-}
-
-std::string asciiLower(std::string value)
-{
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
-    return value;
-}
-
-bool startsWithIgnoreCase(const std::string& value, const std::string& prefix)
-{
-    if (prefix.empty()) {
-        return false;
-    }
-    if (value.size() < prefix.size()) {
-        return false;
-    }
-    return asciiLower(value.substr(0, prefix.size())) == asciiLower(prefix);
-}
-
-std::string interactiveParamKey(const std::string& itemId, const InteractiveParam& param, int index)
-{
-    return itemId + ":" + effectiveParamId(param, index);
-}
-
-std::vector<InteractiveHistoryCandidate> interactiveHistoryCandidates(const InteractiveParam& param, const std::string& input)
-{
-    std::vector<InteractiveHistoryCandidate> candidates;
-    candidates.reserve(param.history.size());
-    for (int i = 0; i < static_cast<int>(param.history.size()); ++i) {
-        const InteractiveParamHistory& history = param.history[static_cast<size_t>(i)];
-        if (history.value.empty()) {
-            continue;
-        }
-        InteractiveHistoryCandidate candidate;
-        candidate.value = history.value;
-        candidate.useCount = history.useCount;
-        candidate.lastUsedAt = history.lastUsedAt;
-        candidate.sourceIndex = i;
-        candidate.prefixMatch = startsWithIgnoreCase(history.value, input);
-        candidates.push_back(std::move(candidate));
-    }
-    std::stable_sort(candidates.begin(), candidates.end(), [](const InteractiveHistoryCandidate& a, const InteractiveHistoryCandidate& b) {
-        if (a.useCount != b.useCount) return a.useCount > b.useCount;
-        if (a.lastUsedAt != b.lastUsedAt) return a.lastUsedAt > b.lastUsedAt;
-        return a.value < b.value;
-    });
-    if (candidates.size() > static_cast<size_t>(kMaxInteractiveHistorySuggestions)) {
-        candidates.resize(static_cast<size_t>(kMaxInteractiveHistorySuggestions));
-    }
-    return candidates;
-}
-
-void pruneInteractiveHistory(InteractiveParam& param)
-{
-    param.history.erase(std::remove_if(param.history.begin(), param.history.end(),
-                                       [](const InteractiveParamHistory& history) {
-                                           return history.value.empty();
-                                       }),
-                        param.history.end());
-    std::stable_sort(param.history.begin(), param.history.end(), [](const InteractiveParamHistory& a, const InteractiveParamHistory& b) {
-        if (a.useCount != b.useCount) return a.useCount > b.useCount;
-        if (a.lastUsedAt != b.lastUsedAt) return a.lastUsedAt > b.lastUsedAt;
-        return a.value < b.value;
-    });
-    if (param.history.size() > kMaxInteractiveParamHistory) {
-        param.history.resize(kMaxInteractiveParamHistory);
-    }
-}
-
-void recordInteractiveHistory(LaunchItem& item, const std::vector<std::string>& values)
-{
-    const std::int64_t timestamp = nowUnix();
-    for (int i = 0; i < static_cast<int>(item.interactiveParams.size()); ++i) {
-        if (i >= static_cast<int>(values.size())) {
-            break;
-        }
-        const std::string& value = values[static_cast<size_t>(i)];
-        if (value.empty()) {
-            continue;
-        }
-        InteractiveParam& param = item.interactiveParams[static_cast<size_t>(i)];
-        auto it = std::find_if(param.history.begin(), param.history.end(), [&](const InteractiveParamHistory& history) {
-            return history.value == value;
-        });
-        if (it == param.history.end()) {
-            param.history.push_back(InteractiveParamHistory{value, 1, timestamp});
-        } else {
-            it->useCount = std::max(0, it->useCount) + 1;
-            it->lastUsedAt = timestamp;
-        }
-        pruneInteractiveHistory(param);
-    }
-}
-
-void removeInteractiveHistoryValue(LaunchItem& item, int paramIndex, const std::string& value)
-{
-    if (paramIndex < 0 || paramIndex >= static_cast<int>(item.interactiveParams.size())) {
-        return;
-    }
-    InteractiveParam& param = item.interactiveParams[static_cast<size_t>(paramIndex)];
-    param.history.erase(std::remove_if(param.history.begin(), param.history.end(),
-                                       [&](const InteractiveParamHistory& history) {
-                                           return history.value == value;
-                                       }),
-                        param.history.end());
-}
-
-bool itemNeedsInteractivePrompt(const LaunchItem& item)
-{
-    return item.interactive && !item.interactiveParams.empty() && item.type != LaunchItemType::VirtualFolder &&
-           item.type != LaunchItemType::Title && item.type != LaunchItemType::Placeholder && item.type != LaunchItemType::Note;
-}
-
 void openInteractiveRunPrompt(const LaunchItem& item, int showCommand, const std::string& searchText)
 {
     gSession.interactiveRunItem = item;
@@ -380,28 +147,6 @@ void openInteractiveRunPrompt(const LaunchItem& item, int showCommand, const std
     }
     gSession.showInteractiveRun = true;
     gSession.openInteractiveRunPopup = true;
-}
-
-std::string replaceInteractiveValue(std::string value, const std::string& id, const std::string& replacement)
-{
-    value = replaceAll(value, "{{" + id + "}}", replacement);
-    value = replaceAll(value, "%" + id + "%", replacement);
-    return value;
-}
-
-LaunchItem withInteractiveValues(const LaunchItem& item, const std::vector<std::string>& values)
-{
-    LaunchItem result = item;
-    for (int i = 0; i < static_cast<int>(item.interactiveParams.size()); ++i) {
-        const std::string id = effectiveParamId(item.interactiveParams[static_cast<size_t>(i)], i);
-        const std::string value = i < static_cast<int>(values.size()) ? values[static_cast<size_t>(i)]
-                                                                      : defaultParamValue(item.interactiveParams[static_cast<size_t>(i)]);
-        result.target = replaceInteractiveValue(result.target.string(), id, value);
-        result.startDirectory = replaceInteractiveValue(result.startDirectory.string(), id, value);
-        result.arguments = replaceInteractiveValue(result.arguments, id, value);
-        result.icon = replaceInteractiveValue(result.icon, id, value);
-    }
-    return result;
 }
 
 Category* selectedCategory(AppContext& context)
@@ -1107,39 +852,12 @@ void selectAllCurrentCategory(AppContext& context)
     }
 }
 
-std::vector<int> orderedItemIndicesForNavigation(const std::vector<LaunchItem>& items, SortMode mode)
-{
-    std::vector<int> indices(items.size());
-    for (int i = 0; i < static_cast<int>(indices.size()); ++i) {
-        indices[i] = i;
-    }
-    if (mode == SortMode::Free) {
-        return indices;
-    }
-
-    std::stable_sort(indices.begin(), indices.end(), [&](int lhs, int rhs) {
-        const LaunchItem& a = items[lhs];
-        const LaunchItem& b = items[rhs];
-        switch (mode) {
-        case SortMode::Name: return a.name < b.name;
-        case SortMode::Type: return static_cast<int>(a.type) < static_cast<int>(b.type);
-        case SortMode::RunCount: return a.runCount > b.runCount;
-        case SortMode::CreatedAt: return a.createdAt > b.createdAt;
-        case SortMode::LastRunAt: return a.lastRunAt > b.lastRunAt;
-        case SortMode::LastEditedAt: return a.lastEditedAt > b.lastEditedAt;
-        case SortMode::Free:
-        default: return lhs < rhs;
-        }
-    });
-    return indices;
-}
-
 ItemViewMode currentNavigationViewMode(const AppContext& context)
 {
     const RuntimeState& runtime = context.runtime();
     const PersistedState& persisted = context.persisted();
     if (runtime.selectedCategory >= 0 && runtime.selectedCategory < static_cast<int>(persisted.categories.size())) {
-        const Category& category = persisted.categories[runtime.selectedCategory];
+        const Category& category = persisted.categories[static_cast<size_t>(runtime.selectedCategory)];
         if (!category.useGlobalLayout) {
             return category.viewMode;
         }
@@ -1152,7 +870,7 @@ int currentNavigationIconSize(const AppContext& context)
     const RuntimeState& runtime = context.runtime();
     const PersistedState& persisted = context.persisted();
     if (runtime.selectedCategory >= 0 && runtime.selectedCategory < static_cast<int>(persisted.categories.size())) {
-        const Category& category = persisted.categories[runtime.selectedCategory];
+        const Category& category = persisted.categories[static_cast<size_t>(runtime.selectedCategory)];
         if (!category.useGlobalLayout) {
             return category.iconSize;
         }
@@ -1160,55 +878,13 @@ int currentNavigationIconSize(const AppContext& context)
     return persisted.settings.iconSize;
 }
 
-struct ItemNavigationEntry {
-    int itemIndex = -1;
-    int row = 0;
-    int column = 0;
-};
-
-std::vector<ItemNavigationEntry> itemNavigationEntries(const AppContext& context, const std::vector<LaunchItem>& items)
+std::vector<main_dock::NavigationEntry> itemNavigationEntries(const AppContext& context, const std::vector<LaunchItem>& items)
 {
     const AppSettings& settings = context.persisted().settings;
     const ItemViewMode viewMode = currentNavigationViewMode(context);
-    const std::vector<int> order = orderedItemIndicesForNavigation(items, settings.sortMode);
-    std::vector<ItemNavigationEntry> entries;
-    entries.reserve(order.size());
-    if (viewMode == ItemViewMode::List) {
-        for (int row = 0; row < static_cast<int>(order.size()); ++row) {
-            entries.push_back({order[row], row, 0});
-        }
-        return entries;
-    }
-
-    const float iconSize = static_cast<float>(std::clamp(currentNavigationIconSize(context), 24, 96));
-    const bool tileMode = viewMode == ItemViewMode::Tile;
-    const float tileW = tileMode ? std::max(120.0f, iconSize + 92.0f) : std::clamp(iconSize + 40.0f, 72.0f, 128.0f);
-    const float gapX = iconSize <= 40.0f ? 6.0f : iconSize >= 56.0f ? 18.0f : 12.0f;
     const float contentWidth = std::max(0.0f, ImGui::GetIO().DisplaySize.x - kRailWidth);
-    const float availableWidth = std::max(0.0f, contentWidth - 44.0f);
-    const int columns = std::max(1, static_cast<int>(availableWidth / (tileW + gapX)));
-
-    int row = 0;
-    int column = 0;
-    for (int itemIndex : order) {
-        const LaunchItem& item = items[itemIndex];
-        if (item.type == LaunchItemType::Title) {
-            if (column != 0) {
-                ++row;
-                column = 0;
-            }
-            entries.push_back({itemIndex, row, 0});
-            ++row;
-            continue;
-        }
-        entries.push_back({itemIndex, row, column});
-        ++column;
-        if (column >= columns) {
-            column = 0;
-            ++row;
-        }
-    }
-    return entries;
+    return main_dock::buildNavigationEntries(items, viewMode, settings.sortMode, currentNavigationIconSize(context),
+                                             std::max(0.0f, contentWidth - 44.0f));
 }
 
 void switchSelectedCategory(AppContext& context, int delta)
@@ -1233,7 +909,7 @@ bool moveCurrentItemSelection(AppContext& context, ImGuiKey key)
         return false;
     }
 
-    const std::vector<ItemNavigationEntry> entries = itemNavigationEntries(context, *items);
+    const std::vector<main_dock::NavigationEntry> entries = itemNavigationEntries(context, *items);
     if (entries.empty()) {
         clearSelection(context);
         return false;
@@ -1253,58 +929,16 @@ bool moveCurrentItemSelection(AppContext& context, ImGuiKey key)
         return true;
     }
 
-    const ItemNavigationEntry& current = entries[currentEntry];
-    int targetEntry = -1;
-    auto chooseInRow = [&](int row, int preferredColumn) {
-        int best = -1;
-        int bestDistance = std::numeric_limits<int>::max();
-        for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-            if (entries[i].row != row) {
-                continue;
-            }
-            const int distance = std::abs(entries[i].column - preferredColumn);
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                best = i;
-            }
-        }
-        return best;
-    };
-
-    if (currentNavigationViewMode(context) == ItemViewMode::List) {
-        if (key == ImGuiKey_UpArrow && currentEntry > 0) {
-            targetEntry = currentEntry - 1;
-        } else if (key == ImGuiKey_DownArrow && currentEntry + 1 < static_cast<int>(entries.size())) {
-            targetEntry = currentEntry + 1;
-        }
-    } else if (key == ImGuiKey_LeftArrow) {
-        for (int i = currentEntry - 1; i >= 0; --i) {
-            if (entries[i].row != current.row) {
-                break;
-            }
-            if (entries[i].column < current.column) {
-                targetEntry = i;
-                break;
-            }
-        }
-    } else if (key == ImGuiKey_RightArrow) {
-        for (int i = currentEntry + 1; i < static_cast<int>(entries.size()); ++i) {
-            if (entries[i].row != current.row) {
-                break;
-            }
-            if (entries[i].column > current.column) {
-                targetEntry = i;
-                break;
-            }
-        }
-        if (targetEntry < 0 && currentEntry + 1 < static_cast<int>(entries.size())) {
-            targetEntry = currentEntry + 1;
-        }
-    } else if (key == ImGuiKey_UpArrow) {
-        targetEntry = chooseInRow(current.row - 1, current.column);
-    } else if (key == ImGuiKey_DownArrow) {
-        targetEntry = chooseInRow(current.row + 1, current.column);
+    main_dock::NavigationDirection direction;
+    switch (key) {
+    case ImGuiKey_LeftArrow: direction = main_dock::NavigationDirection::Left; break;
+    case ImGuiKey_RightArrow: direction = main_dock::NavigationDirection::Right; break;
+    case ImGuiKey_UpArrow: direction = main_dock::NavigationDirection::Up; break;
+    case ImGuiKey_DownArrow: direction = main_dock::NavigationDirection::Down; break;
+    default: return false;
     }
+    const int targetEntry =
+        main_dock::findNavigationTarget(entries, currentEntry, currentNavigationViewMode(context), direction);
 
     if (targetEntry < 0 || targetEntry >= static_cast<int>(entries.size()) || targetEntry == currentEntry) {
         return false;
@@ -1880,7 +1514,7 @@ bool drawInteractiveHistorySuggestions(AppContext& context, const UiPalette& the
         return false;
     }
 
-    std::vector<InteractiveHistoryCandidate> candidates = interactiveHistoryCandidates(param, value);
+    std::vector<HistoryCandidate> candidates = interactiveHistoryCandidates(param, value);
     if (candidates.empty()) {
         return false;
     }
@@ -1923,7 +1557,7 @@ bool drawInteractiveHistorySuggestions(AppContext& context, const UiPalette& the
     ImGui::BeginChild("history", ImVec2(-1.0f, height), ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollbar);
     ImDrawList* dl = ImGui::GetWindowDrawList();
     for (int i = 0; i < static_cast<int>(candidates.size()); ++i) {
-        const InteractiveHistoryCandidate& candidate = candidates[static_cast<size_t>(i)];
+        const HistoryCandidate& candidate = candidates[static_cast<size_t>(i)];
         ImGui::PushID(i);
         const float buttonWidth = 30.0f;
         const ImVec2 rowPos = ImGui::GetCursorScreenPos();
@@ -2068,7 +1702,7 @@ void drawInteractiveRunDialog(AppContext& context, const UiPalette& theme)
             if (LaunchItem* liveItem = findItemById(context, gSession.interactiveRunItemId)) {
                 launched = launchResolvedItem(context, *liveItem, std::move(launchItem), gSession.interactiveRunShowCommand);
                 if (launched) {
-                    recordInteractiveHistory(*liveItem, gSession.interactiveRunValues);
+                    launch_params::recordInteractiveHistory(*liveItem, gSession.interactiveRunValues, nowUnix());
                     context.save();
                 }
             } else {
@@ -2205,104 +1839,6 @@ void resetMainDockScrollOnNextFrame()
     gSession.resetMainDockScroll = true;
 }
 
-void drawUpdateDialog(AppContext& context)
-{
-    if (!gSession.showUpdateDialog) {
-        return;
-    }
-
-    setupManagedWindow("LauncherManagedUpdates");
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(520.0f, 390.0f), ImGuiCond_Appearing);
-    ManagedWindowStyle windowStyle(gSession.theme);
-
-    bool open = true;
-    if (!ImGui::Begin("Check Updates###update-dialog", &open,
-                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize |
-                          ImGuiWindowFlags_NoSavedSettings)) {
-        ImGui::End();
-        if (!open) {
-            gSession.showUpdateDialog = false;
-        }
-        return;
-    }
-    applyManagedViewportChrome(ImGui::GetWindowViewport()->PlatformHandleRaw, context.themes.active(), gSession.theme);
-    drawManagedTitleBar(gSession.theme, tr("Check Updates"), open);
-    ImGui::SetCursorPos(ImVec2(18.0f, kUiTitleHeight + 16.0f));
-    ImGui::BeginChild("update-content", ImVec2(-18.0f, -18.0f), false);
-
-    const UpdateSnapshot update = context.updates.snapshot();
-    ImGui::Text("%s: %s", tr("Current version"), update.currentVersion.c_str());
-    if (!update.latestVersion.empty()) {
-        ImGui::SameLine();
-        ImGui::Text("%s: %s", tr("Latest version"), update.latestVersion.c_str());
-    }
-    ImGui::Separator();
-
-    switch (update.state) {
-    case UpdateState::Idle:
-        ImGui::TextUnformatted(tr("Ready to check for updates."));
-        if (ImGui::Button(tr("Check Now"))) {
-            context.updates.checkForUpdates();
-        }
-        break;
-    case UpdateState::Checking: ImGui::TextUnformatted(tr("Checking for updates...")); break;
-    case UpdateState::UpToDate:
-        ImGui::TextUnformatted(tr("You are using the latest version."));
-        if (ImGui::Button(tr("Check Again"))) {
-            context.updates.checkForUpdates();
-        }
-        break;
-    case UpdateState::Available:
-        ImGui::TextUnformatted(tr("A new verified update is available."));
-        if (ImGui::Button(tr("Download Update"))) {
-            context.updates.downloadUpdate();
-        }
-        break;
-    case UpdateState::Downloading:
-        ImGui::TextUnformatted(tr("Downloading and verifying update..."));
-        ImGui::ProgressBar(static_cast<float>(update.downloadPercent) / 100.0f, ImVec2(-1.0f, 0.0f),
-                           (std::to_string(update.downloadPercent) + "%").c_str());
-        break;
-    case UpdateState::ReadyToInstall:
-        ImGui::TextUnformatted(tr("Update verified and ready to install."));
-        if (ImGui::Button(tr("Restart and Install"))) {
-            if (context.updates.installDownloadedUpdate()) {
-                if (auto* hwnd = static_cast<HWND>(ImGui::GetMainViewport()->PlatformHandleRaw)) {
-                    PostMessageW(hwnd, WM_COMMAND, 3002, 0);
-                }
-            }
-        }
-        break;
-    case UpdateState::Installing: ImGui::TextUnformatted(tr("Restarting to install update...")); break;
-    case UpdateState::Failed:
-        ImGui::TextUnformatted(tr("Update failed."));
-        ImGui::TextWrapped("%s", update.message.c_str());
-        if (ImGui::Button(tr("Try Again"))) {
-            context.updates.checkForUpdates();
-        }
-        break;
-    }
-
-    if (!update.releaseNotes.empty()) {
-        ImGui::Separator();
-        ImGui::TextUnformatted(tr("Release notes"));
-        ImGui::BeginChild("update-release-notes", ImVec2(-1.0f, 130.0f), true);
-        ImGui::TextWrapped("%s", update.releaseNotes.c_str());
-        ImGui::EndChild();
-    }
-    ImGui::Separator();
-    if (ImGui::Button(tr("Close"))) {
-        open = false;
-    }
-    ImGui::EndChild();
-    ImGui::End();
-    if (!open) {
-        gSession.showUpdateDialog = false;
-    }
-}
-
 void drawMainDock(AppContext& context)
 {
     configureMainDockState(mainDockStateApi());
@@ -2407,7 +1943,7 @@ void drawMainDock(AppContext& context)
     drawTaskPlannerWindow(context, context.themes.active(), gSession.theme, gSession.showTaskPlanner);
     drawUserGuideWindow(context, gSession.theme);
     drawInteractiveRunDialog(context, gSession.theme);
-    drawUpdateDialog(context);
+    drawUpdateDialog(context, gSession.theme, gSession.showUpdateDialog);
     snapMainWindowIfNeeded(context.persisted().settings);
 }
 

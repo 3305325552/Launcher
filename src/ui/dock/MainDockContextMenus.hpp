@@ -1,12 +1,13 @@
 #pragma once
 
 #include "launcher/Models.hpp"
+#include "ui/dock/MainDockCallbacks.hpp"
 #include "ui/common/UiTheme.hpp"
 
 #include <imgui.h>
 #include <imgui_internal.h>
 
-#include <functional>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -39,21 +40,21 @@ struct TooltipApi {
 };
 
 struct ItemMenuApi {
-    std::function<bool(const LaunchItem&)> isItemSelected;
-    std::function<void(AppContext&, const LaunchItem&)> selectSingle;
-    std::function<void(AppContext&, int)> openItemEditor;
-    std::function<void(const AppContext&)> requestDeleteSelection;
-    std::function<void(AppContext&, const LaunchItem&)> enterVirtualFolder;
-    std::function<void(const LaunchItem&, bool)> copyItemToClipboard;
-    std::function<void(const std::string&)> copyTextToClipboard;
-    std::function<std::string(const LaunchItem&)> itemPropertiesText;
-    std::function<void(AppContext&, LaunchItem&, int)> runItem;
-    std::function<void(AppContext&, const LaunchItem&)> openNoteEditor;
-    std::function<void(const LaunchItem&)> openWithDialog;
-    std::function<void(const LaunchItem&)> openContainingFolder;
-    std::function<void(const LaunchItem&)> showFileProperties;
-    std::function<void(AppContext&, const LaunchItem&)> rebuildIconCache;
-    std::function<void(AppContext&, const LaunchItem&)> addScheduledTask;
+    main_dock::Callback<bool(const LaunchItem&)> isItemSelected = nullptr;
+    main_dock::Callback<void(AppContext&, const LaunchItem&)> selectSingle = nullptr;
+    main_dock::Callback<void(AppContext&, int)> openItemEditor = nullptr;
+    main_dock::Callback<void(const AppContext&)> requestDeleteSelection = nullptr;
+    main_dock::Callback<void(AppContext&, const LaunchItem&)> enterVirtualFolder = nullptr;
+    main_dock::Callback<void(const LaunchItem&, bool)> copyItemToClipboard = nullptr;
+    main_dock::Callback<void(const std::string&)> copyTextToClipboard = nullptr;
+    main_dock::Callback<std::string(const LaunchItem&)> itemPropertiesText = nullptr;
+    main_dock::Callback<void(AppContext&, LaunchItem&, int)> runItem = nullptr;
+    main_dock::Callback<void(AppContext&, const LaunchItem&)> openNoteEditor = nullptr;
+    main_dock::Callback<void(const LaunchItem&)> openWithDialog = nullptr;
+    main_dock::Callback<void(const LaunchItem&)> openContainingFolder = nullptr;
+    main_dock::Callback<void(const LaunchItem&)> showFileProperties = nullptr;
+    main_dock::Callback<void(AppContext&, const LaunchItem&)> rebuildIconCache = nullptr;
+    main_dock::Callback<void(AppContext&, const LaunchItem&)> addScheduledTask = nullptr;
 };
 
 void drawContentMenu(const UiPalette& theme, AppContext& context, const ContentMenuState& state, const ContentMenuApi& api);

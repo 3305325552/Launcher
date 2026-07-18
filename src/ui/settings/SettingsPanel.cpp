@@ -4,7 +4,7 @@
 #include "platform/SystemIntegration.hpp"
 #include "ui/settings/ConfigTransfer.hpp"
 #include "ui/common/Localization.hpp"
-#include "ui/dock/MainDockChrome.hpp"
+#include "ui/common/UiChrome.hpp"
 #include "ui/common/MaterialIcons.hpp"
 #include "ui/settings/SettingsPages.hpp"
 #include "ui/settings/SettingsWidgets.hpp"
@@ -20,10 +20,8 @@
 #include <misc/cpp/imgui_stdlib.h>
 
 #include <algorithm>
-#include <cstdio>
 #include <array>
 #include <cstdlib>
-#include <cstring>
 #include <filesystem>
 #include <map>
 #include <string>

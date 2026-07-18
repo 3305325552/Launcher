@@ -3,7 +3,7 @@
 #include "app/AppContext.hpp"
 #include "core/GlobalFileItem.hpp"
 #include "ui/dock/MainDock.hpp"
-#include "ui/dock/MainDockChrome.hpp"
+#include "ui/common/UiChrome.hpp"
 #include "ui/dock/MainDockMenu.hpp"
 #include "ui/common/Localization.hpp"
 #include "ui/dock/MainDockState.hpp"

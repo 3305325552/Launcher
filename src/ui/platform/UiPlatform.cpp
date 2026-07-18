@@ -1,7 +1,8 @@
-#include "ui/dock/MainDockWin32.hpp"
+#include "ui/platform/UiPlatform.hpp"
 
 #include "core/StringEncoding.hpp"
 #include "launcher/AppIdentity.hpp"
+#include "launcher/Models.hpp"
 
 #include <commdlg.h>
 #include <imgui.h>
