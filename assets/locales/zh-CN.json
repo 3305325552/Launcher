@@ -326,6 +326,7 @@
   "Title size": "标题大小",
   "Tools": "工具",
   "Tooltip": "提示组件",
+  "Show the item tooltip next to the mouse cursor instead of below the item.": "将项目提示显示在鼠标旁边，而不是项目下方。",
   "Item tooltip opacity": "悬停提示透明度",
   "Tray": "托盘",
   "Type to search": "输入内容开始搜索",

@@ -4,11 +4,11 @@
 #include "core/StringEncoding.hpp"
 #include "platform/SystemIntegration.hpp"
 #include "platform/Win32Window.hpp"
-#include "ui/MainDock.hpp"
-#include "ui/Localization.hpp"
-#include "ui/MaterialIconRegistry.hpp"
-#include "ui/UiAnimation.hpp"
-#include "ui/UiTheme.hpp"
+#include "ui/dock/MainDock.hpp"
+#include "ui/common/Localization.hpp"
+#include "ui/common/MaterialIconRegistry.hpp"
+#include "ui/common/UiAnimation.hpp"
+#include "ui/common/UiTheme.hpp"
 
 #include <windows.h>
 #include <dwmapi.h>

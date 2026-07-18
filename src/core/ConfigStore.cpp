@@ -505,6 +505,7 @@ void to_json(json& j, const AppSettings& settings)
              {"sortMode", sortModeToString(settings.sortMode)},
              {"nameLines", settings.nameLines},
              {"tooltipEnabled", settings.tooltipEnabled},
+             {"tooltipFollowMouse", settings.tooltipFollowMouse},
              {"tooltipRunCount", settings.tooltipRunCount},
              {"tooltipTarget", settings.tooltipTarget},
              {"tooltipArguments", settings.tooltipArguments},
@@ -593,6 +594,7 @@ void from_json(const json& j, AppSettings& settings)
     settings.sortMode = sortModeFromString(j.value("sortMode", "free"));
     settings.nameLines = j.value("nameLines", 1);
     settings.tooltipEnabled = j.value("tooltipEnabled", true);
+    settings.tooltipFollowMouse = j.value("tooltipFollowMouse", false);
     settings.tooltipRunCount = j.value("tooltipRunCount", true);
     settings.tooltipTarget = j.value("tooltipTarget", true);
     settings.tooltipArguments = j.value("tooltipArguments", true);

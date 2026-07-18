@@ -1,6 +1,6 @@
 #pragma once
 
-#include "launcher/Models.hpp"
+#include "launcher/ThemeTypes.hpp"
 
 #include <filesystem>
 #include <string>

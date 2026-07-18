@@ -90,28 +90,31 @@ target_compile_definitions(launcher_platform_win32 PUBLIC
 )
 
 add_library(launcher_ui STATIC
-    src/ui/ConfigTransfer.cpp
-    src/ui/MainDockCategoryRail.cpp
-    src/ui/MainDock.cpp
-    src/ui/MainDockChrome.cpp
-    src/ui/MainDockContextMenus.cpp
-    src/ui/MainDockDialogs.cpp
-    src/ui/MainDockGrid.cpp
-    src/ui/MainDockItemEditor.cpp
-    src/ui/MainDockItemViews.cpp
-    src/ui/MainDockMenu.cpp
-    src/ui/MainDockNotes.cpp
-    src/ui/MaterialIconRegistry.cpp
-    src/ui/MarkdownView.cpp
-    src/ui/MainDockSearch.cpp
-    src/ui/MainDockState.cpp
-    src/ui/MainDockWin32.cpp
-    src/ui/Localization.cpp
-    src/ui/SettingsPanel.cpp
-    src/ui/ThemeEditor.cpp
-    src/ui/UiAnimation.cpp
-    src/ui/UiTheme.cpp
-    src/ui/UserGuideView.cpp
+    src/ui/settings/ConfigTransfer.cpp
+    src/ui/dock/MainDockCategoryRail.cpp
+    src/ui/dock/MainDock.cpp
+    src/ui/dock/MainDockChrome.cpp
+    src/ui/dock/MainDockContextMenus.cpp
+    src/ui/dock/MainDockDialogs.cpp
+    src/ui/dock/MainDockGrid.cpp
+    src/ui/dock/MainDockItemEditor.cpp
+    src/ui/dock/MainDockItemViews.cpp
+    src/ui/dock/MainDockMenu.cpp
+    src/ui/dock/MainDockNotes.cpp
+    src/ui/rendering/MainDockResources.cpp
+    src/ui/common/MaterialIconRegistry.cpp
+    src/ui/views/MarkdownView.cpp
+    src/ui/dock/MainDockSearch.cpp
+    src/ui/dock/MainDockState.cpp
+    src/ui/dock/MainDockWin32.cpp
+    src/ui/common/Localization.cpp
+    src/ui/settings/SettingsPages.cpp
+    src/ui/settings/SettingsPanel.cpp
+    src/ui/settings/SettingsWidgets.cpp
+    src/ui/settings/ThemeEditor.cpp
+    src/ui/common/UiAnimation.cpp
+    src/ui/common/UiTheme.cpp
+    src/ui/views/UserGuideView.cpp
 )
 
 target_include_directories(launcher_ui PUBLIC
