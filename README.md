@@ -48,7 +48,7 @@ third_party/imgui/       ImGui submodule and related vendor code
 Requirements:
 
 - Windows
-- Visual Studio 2022 with the x64 C++ desktop workload
+- Visual Studio with the x64 C++ desktop workload
 - CMake 3.24+
 - DirectX 11 SDK components available through the Windows SDK
 - Git submodules initialized
@@ -62,7 +62,7 @@ git submodule update --init --recursive
 Configure:
 
 ```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DLAUNCHER_STATIC_RUNTIME=ON
+cmake -S . -B build -A x64 -DLAUNCHER_STATIC_RUNTIME=ON
 ```
 
 Build:

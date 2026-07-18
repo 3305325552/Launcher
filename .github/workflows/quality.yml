@@ -95,7 +95,7 @@ jobs:
         shell: pwsh
         run: |
           cmake -S . -B build/msvc `
-            -G "Visual Studio 17 2022" -A x64 `
+            -A x64 `
             -DLAUNCHER_STATIC_RUNTIME=ON `
             -DCUSTOM_IMGUI_BUILD_TESTS=OFF
 
