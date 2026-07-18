@@ -1,13 +1,22 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(Launcher VERSION 0.9.23 LANGUAGES C CXX RC)
+project(Launcher VERSION 0.9.24 LANGUAGES C CXX RC)
 
 add_compile_definitions(LAUNCHER_VERSION="${PROJECT_VERSION}")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-option(LAUNCHER_STATIC_RUNTIME "Statically link MinGW runtime libraries for portable release packages" OFF)
+option(LAUNCHER_STATIC_RUNTIME "Statically link the compiler runtime for portable release packages" OFF)
+
+if(LAUNCHER_STATIC_RUNTIME AND MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
+
 set(LAUNCHER_APP_ICON "${CMAKE_CURRENT_SOURCE_DIR}/assets/icon/icon.ico")
 
 include(FetchContent)
@@ -372,5 +381,21 @@ if(LAUNCHER_STATIC_RUNTIME AND MINGW)
             launcher_core_tests
             launcher_ui_logic_tests)
         target_link_options(${target_name} PRIVATE -static-libgcc -static-libstdc++)
+    endforeach()
+endif()
+
+if(MSVC)
+    foreach(target_name
+            launcher_core
+            launcher_platform_win32
+            launcher_ui
+            launcher
+            launcher_updater
+            launcher_sample_echo_plugin
+            launcher_sample_toolbox_plugin
+            launcher_sample_native_plugin
+            launcher_core_tests
+            launcher_ui_logic_tests)
+        set_property(TARGET ${target_name} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
     endforeach()
 endif()

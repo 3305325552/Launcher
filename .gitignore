@@ -2,6 +2,7 @@ build/
 out/
 .vs/
 .idea/
+.zed/
 .agents/
 .codex/
 *.user

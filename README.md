@@ -48,7 +48,7 @@ third_party/imgui/       ImGui submodule and related vendor code
 Requirements:
 
 - Windows
-- Visual Studio 2022 or another compiler with solid C++20 support
+- Visual Studio 2022 with the x64 C++ desktop workload
 - CMake 3.24+
 - DirectX 11 SDK components available through the Windows SDK
 - Git submodules initialized
@@ -62,7 +62,7 @@ git submodule update --init --recursive
 Configure:
 
 ```powershell
-cmake -S . -B build
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DLAUNCHER_STATIC_RUNTIME=ON
 ```
 
 Build:
@@ -75,7 +75,7 @@ The executable target is `launcher`.
 
 ## Development
 
-The `Quality` workflow is the source of truth for pull requests. It checks formatting with `clang-format`, validates project translation units with `clangd`, builds the Windows targets with Clang, and runs CTest.
+The `Quality` workflow is the source of truth for pull requests. It checks formatting with `clang-format`, validates project translation units with `clangd`, builds the Windows targets with both Clang and MSVC, and runs CTest for both toolchains. Tagged release packages are built with MSVC and the static runtime, so they do not require compiler runtime DLLs.
 
 Run the equivalent checks locally from a Clang/MSYS2 environment:
 

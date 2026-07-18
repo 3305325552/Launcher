@@ -39,62 +39,52 @@ jobs:
             exit 1
           fi
 
-      - name: Set up MSYS2 MinGW
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            git
-            zip
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-ninja
-
       - name: Pull pinned public dependencies
-        shell: msys2 {0}
+        shell: bash
         run: |
           git submodule update --init --depth 1 third_party/imgui
           git -C third_party/imgui submodule update --init --depth 1 third_party/imgui third_party/ImAnim
 
       - name: Configure
-        shell: msys2 {0}
-        run: >-
-          cmake -S . -B "${BUILD_DIR}" -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DLAUNCHER_STATIC_RUNTIME=OFF
-          -DCMAKE_RC_COMPILER=windres
-          -DCUSTOM_IMGUI_BUILD_TESTS=OFF
+        shell: pwsh
+        run: |
+          cmake -S . -B $env:BUILD_DIR `
+            -G "Visual Studio 17 2022" -A x64 `
+            -DLAUNCHER_STATIC_RUNTIME=ON `
+            -DCUSTOM_IMGUI_BUILD_TESTS=OFF
 
       - name: Build
-        shell: msys2 {0}
-        run: cmake --build "${BUILD_DIR}" --parallel 2
+        shell: pwsh
+        run: cmake --build $env:BUILD_DIR --config Release --parallel 2
 
       - name: Test
-        shell: msys2 {0}
-        run: ctest --test-dir "${BUILD_DIR}" --output-on-failure
+        shell: pwsh
+        run: ctest --test-dir $env:BUILD_DIR -C Release --output-on-failure
 
       - name: Package
-        shell: msys2 {0}
+        shell: pwsh
         run: |
-          version="${TAG_NAME#v}"
-          package_name="launcher-${version}-windows-x86_64"
-          rm -rf dist
-          mkdir -p "dist/${package_name}"
-          cp "${BUILD_DIR}/launcher.exe" "dist/${package_name}/"
-          cp "${BUILD_DIR}/launcher_updater.exe" "dist/${package_name}/"
-          cp /mingw64/bin/libgcc_s_seh-1.dll "dist/${package_name}/"
-          cp /mingw64/bin/libstdc++-6.dll "dist/${package_name}/"
-          cp /mingw64/bin/libwinpthread-1.dll "dist/${package_name}/"
-          cp -r "${BUILD_DIR}/assets" "dist/${package_name}/assets"
-          [ ! -f LICENSE ] || cp LICENSE "dist/${package_name}/"
-          [ ! -f THIRD_PARTY_NOTICES.md ] || cp THIRD_PARTY_NOTICES.md "dist/${package_name}/"
-          (cd dist && zip -r "${package_name}.zip" "${package_name}")
-          (cd dist && sha256sum "${package_name}.zip" > SHA256SUMS.txt)
+          $version = $env:TAG_NAME -replace '^v', ''
+          $packageName = "launcher-$version-windows-x86_64"
+          $releaseDir = Join-Path $env:BUILD_DIR "Release"
+          $packageDir = Join-Path "dist" $packageName
+          $zipPath = Join-Path "dist" "$packageName.zip"
+
+          Remove-Item "dist" -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $packageDir | Out-Null
+          Copy-Item (Join-Path $releaseDir "launcher.exe") $packageDir
+          Copy-Item (Join-Path $releaseDir "launcher_updater.exe") $packageDir
+          Copy-Item (Join-Path $releaseDir "assets") $packageDir -Recurse
+          if (Test-Path "LICENSE") { Copy-Item "LICENSE" $packageDir }
+          if (Test-Path "THIRD_PARTY_NOTICES.md") { Copy-Item "THIRD_PARTY_NOTICES.md" $packageDir }
+
+          Compress-Archive -Path $packageDir -DestinationPath $zipPath -CompressionLevel Optimal
+          $hash = (Get-FileHash $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $packageName.zip" | Set-Content "dist/SHA256SUMS.txt" -Encoding ascii
 
       - name: Generate release notes
         if: github.event_name != 'workflow_dispatch'
-        shell: msys2 {0}
+        shell: bash
         run: |
           previous_tag="$(git tag --merged "${GITHUB_SHA}" --sort=-version:refname | grep -Fxv "${TAG_NAME}" | head -n 1 || true)"
           if [ -n "${previous_tag}" ]; then
