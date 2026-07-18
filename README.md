@@ -14,11 +14,39 @@ This repository is not just a UI scaffold anymore. It already contains a working
 - Search with substring, fuzzy, regex, and pinyin-related options
 - Tray/minimize behavior and global hotkey support
 - Theme editor, settings panel, and background image support
-- Markdown notes, scheduled tasks, and process/native plugin support
+- Markdown notes with image attachments, scheduled tasks, and process/native plugin support
 - Verified in-place updates published through GitHub Releases
 - Localized UI resources under `assets/locales`
 - JSON-backed user config stored by default in `%LOCALAPPDATA%/Launcher/config.json`, with the active config directory editable from Settings
 - Existing pre-release config is migrated from the old local app data path on first run when the new config does not exist
+
+## Screenshots
+
+### Main Window
+
+<table>
+  <tr>
+    <td><img src="docs/images/main-dark.png" alt="Launcher main window in dark mode"></td>
+    <td><img src="docs/images/main-light.png" alt="Launcher main window in light mode"></td>
+  </tr>
+</table>
+
+### Workflows
+
+<table>
+  <tr>
+    <td><img src="docs/images/global-search.png" alt="Global search results"></td>
+    <td><img src="docs/images/drag-and-drop.png" alt="Drag and drop item workflow"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/notes-workspace.png" alt="Markdown notes workspace"></td>
+    <td><img src="docs/images/theme-editor.png" alt="Theme editor"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/item-editor.png" alt="Launcher item editor"></td>
+    <td><img src="docs/images/task-planner.png" alt="Task planner"></td>
+  </tr>
+</table>
 
 ## Tech Stack
 
@@ -98,7 +126,7 @@ On first run, if no usable config exists, the app falls back to seed data from `
 - [src/main.cpp](src/main.cpp) sets up COM and enforces single-instance behavior.
 - [src/app/Application.cpp](src/app/Application.cpp) owns the main loop, window visibility behavior, and ImGui lifecycle.
 - [src/platform/Win32Window.cpp](src/platform/Win32Window.cpp) handles the native window, D3D11 device, tray behavior, and Win32 message processing.
-- [src/ui/MainDock.cpp](src/ui/MainDock.cpp) is the main UI composition layer.
+- [src/ui/dock/MainDock.cpp](src/ui/dock/MainDock.cpp) is the main UI composition layer.
 - [src/core/ConfigStore.cpp](src/core/ConfigStore.cpp) serializes/deserializes launcher state to JSON.
 - [src/core/LauncherService.cpp](src/core/LauncherService.cpp) launches configured items through `CreateProcessW` or `ShellExecuteW`.
 - [src/core/SearchIndex.cpp](src/core/SearchIndex.cpp) provides in-memory search across categories and nested items.
@@ -107,6 +135,10 @@ On first run, if no usable config exists, the app falls back to seed data from `
 
 - This is currently a Windows-only codebase.
 - Version tags matching the CMake project version publish a verified Windows archive through GitHub Releases.
+
+## Acknowledgements
+
+Thanks also to the [LINUX DO community](https://linux.do/) for the discussions that sparked this project and for providing a forum to share and promote Launcher.
 
 ## License
 

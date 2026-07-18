@@ -5,6 +5,8 @@
 #include "ui/common/UiChrome.hpp"
 #include "ui/dock/MainDockDragPayload.hpp"
 #include "ui/dock/MainDockMenu.hpp"
+#include "ui/notes/NoteImageService.hpp"
+#include "ui/rendering/MainDockResources.hpp"
 #include "ui/views/MarkdownView.hpp"
 #include "ui/common/MaterialIcons.hpp"
 #include "ui/common/UiAnimation.hpp"
@@ -107,6 +109,8 @@ constexpr float kTreeWidthMin = 220.0f;
 constexpr float kTreeWidthMax = 300.0f;
 constexpr float kOutlineWidthMin = 160.0f;
 constexpr float kOutlineWidthMax = 240.0f;
+
+bool insertNoteImage(AppContext& context, bool fromClipboard);
 
 std::int64_t nowUnix()
 {
@@ -397,6 +401,9 @@ void loadDraft(const Note& note)
     gNotesPanel.outline.pendingLine = -1;
     gNotesPanel.outline.editorScrollFrames = 0;
     gNotesPanel.selectedFolder = note.folder;
+    gNotesPanel.textSelStart = static_cast<int>(gNotesPanel.draftBody.size());
+    gNotesPanel.textSelEnd = gNotesPanel.textSelStart;
+    gNotesPanel.textFieldId = 0;
 }
 
 // Never auto-save: only explicit Save / Ctrl+S / confirm dialogs may force-save.
@@ -1414,6 +1421,12 @@ void drawNotesToolbar(AppContext& context, const UiPalette& theme, Note* selecte
     ImGui::EndDisabled();
     ImGui::SameLine();
     ImGui::BeginDisabled(!selected);
+    if (notesButton(theme, Icons::Image, tr("Insert Image")) && selected) {
+        insertNoteImage(context, false);
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!selected);
     if (notesButton(theme, Icons::Note, tr("Add to List")) && selected) {
         saveDraft(context, true);
         if (currentListHasNoteItem(context, *selected)) {
@@ -2234,6 +2247,40 @@ void applyDraftTextMutation(int start, int end, const std::string& insert)
     gNotesPanel.textSelEnd = gNotesPanel.textSelStart;
 }
 
+bool insertNoteImage(AppContext& context, bool fromClipboard)
+{
+    Note* note = context.notes.find(gNotesPanel.loadedNoteId);
+    if (!note) {
+        setStatus(tr("Image insert failed"));
+        return false;
+    }
+    std::string error;
+    const std::optional<NoteImageInsert> image =
+        fromClipboard ? pasteNoteImage(context.notes, *note, &error) : chooseNoteImage(context.notes, *note, &error);
+    if (!image) {
+        if (!error.empty()) {
+            setStatus(tr("Image insert failed"));
+        }
+        return false;
+    }
+
+    int start = gNotesPanel.textSelStart;
+    int end = gNotesPanel.textSelEnd;
+    normalizeTextSelection(start, end, static_cast<int>(gNotesPanel.draftBody.size()));
+    std::string markdown = image->markdown;
+    if (start > 0 && gNotesPanel.draftBody[static_cast<size_t>(start - 1)] != '\n') {
+        markdown.insert(0, "\n\n");
+    }
+    if (end < static_cast<int>(gNotesPanel.draftBody.size()) && gNotesPanel.draftBody[static_cast<size_t>(end)] != '\n') {
+        markdown += "\n\n";
+    } else {
+        markdown.push_back('\n');
+    }
+    applyDraftTextMutation(start, end, markdown);
+    setStatus(tr("Image inserted"));
+    return true;
+}
+
 void restoreTextSelectionHighlight();
 
 void restoreTextSelectionHighlight()
@@ -2251,7 +2298,7 @@ void restoreTextSelectionHighlight()
     }
 }
 
-void drawTextEditContextMenu(const UiPalette& theme, bool readOnly = false)
+void drawTextEditContextMenu(AppContext& context, const UiPalette& theme, bool readOnly = false)
 {
     captureTextSelectionFromLastItem();
     const int popupOpacity = 100;
@@ -2291,6 +2338,9 @@ void drawTextEditContextMenu(const UiPalette& theme, bool readOnly = false)
         if (menuItem(popupTheme, Icons::Paste, tr("Paste"), "Ctrl+V", false, canPaste)) {
             applyDraftTextMutation(start, end, clipboard ? clipboard : "");
         }
+        if (menuItem(popupTheme, Icons::Image, tr("Paste Image"), nullptr, false, noteImageAvailableOnClipboard())) {
+            insertNoteImage(context, true);
+        }
         if (menuItem(popupTheme, Icons::Delete, tr("Delete"), "Del", false, hasSelection)) {
             applyDraftTextMutation(start, end, {});
         }
@@ -2311,7 +2361,18 @@ void drawTextEditContextMenu(const UiPalette& theme, bool readOnly = false)
     ImGui::EndPopup();
 }
 
-void drawEditableMarkdown(const UiPalette& theme, const char* id, const ImVec2& size)
+bool handleImagePasteShortcut(AppContext& context)
+{
+    const ImGuiIO& io = ImGui::GetIO();
+    if (gNotesPanel.textFieldId == 0 || ImGui::GetActiveID() != gNotesPanel.textFieldId || !io.KeyCtrl ||
+        !ImGui::IsKeyPressed(ImGuiKey_V, false) || !noteImageAvailableOnClipboard()) {
+        return false;
+    }
+    ImGui::SetKeyOwner(ImGuiKey_V, ImGui::GetID("note-image-paste-owner"), ImGuiInputFlags_LockThisFrame);
+    return insertNoteImage(context, true);
+}
+
+void drawEditableMarkdown(AppContext& context, const UiPalette& theme, const char* id, const ImVec2& size)
 {
     pushPaneStyle(theme);
     ImGui::BeginChild(id, size, ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar);
@@ -2326,6 +2387,7 @@ void drawEditableMarkdown(const UiPalette& theme, const char* id, const ImVec2& 
     if (callbackData.targetLine >= 0) {
         flags |= ImGuiInputTextFlags_CallbackAlways;
     }
+    handleImagePasteShortcut(context);
     if (ImGui::InputTextMultiline("##note-body", &gNotesPanel.draftBody, ImVec2(editorWidth, contentHeight), flags,
                                   callbackData.targetLine >= 0 ? outlineScrollCallback : nullptr, &callbackData)) {
         markDirty();
@@ -2334,7 +2396,7 @@ void drawEditableMarkdown(const UiPalette& theme, const char* id, const ImVec2& 
     if (gNotesPanel.textMenuOpen) {
         restoreTextSelectionHighlight();
     }
-    drawTextEditContextMenu(theme, false);
+    drawTextEditContextMenu(context, theme, false);
     if (gNotesPanel.outline.pendingLine >= 0) {
         applyEditorOutlineScroll();
     }
@@ -2343,28 +2405,27 @@ void drawEditableMarkdown(const UiPalette& theme, const char* id, const ImVec2& 
     popPaneStyle();
 }
 
-void drawRenderedMarkdown(const UiPalette& theme, const char* id, const ImVec2& size)
+void drawRenderedMarkdown(const UiPalette& theme, const char* id, const ImVec2& size, const MarkdownImageResolver& imageResolver)
 {
     pushPaneStyle(theme);
     ImGui::BeginChild(id, size, ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar);
-    drawMarkdownPreview(theme, gNotesPanel.draftBody, &gNotesPanel.outline);
+    drawMarkdownPreview(theme, gNotesPanel.draftBody, &gNotesPanel.outline, &imageResolver);
     ImGui::EndChild();
     popPaneStyle();
 }
 
-void drawSelectablePreviewPane(const UiPalette& theme, const ImVec2& size)
+void drawSelectablePreviewPane(const UiPalette& theme, const ImVec2& size, const MarkdownImageResolver& imageResolver)
 {
     pushPaneStyle(theme);
     ImGui::BeginChild("note-selectable-preview-pane", size, ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar);
-    launcher::drawSelectableMarkdownPreview(theme, gNotesPanel.draftBody, &gNotesPanel.outline);
+    launcher::drawSelectableMarkdownPreview(theme, gNotesPanel.draftBody, &gNotesPanel.outline, &imageResolver);
     ImGui::EndChild();
     popPaneStyle();
 }
 
-void drawEditor(AppContext& context, const UiPalette& theme, Note& note)
+void drawEditor(AppContext& context, const UiPalette& theme, Note& note, const MarkdownImageResolver& imageResolver)
 {
     (void)note;
-    (void)context;
     if (notesButton(theme, Icons::CopyProperties, tr("Preview"), gNotesPanel.mode == 2)) {
         saveDraft(context, true);
         gNotesPanel.mode = 2;
@@ -2393,9 +2454,9 @@ void drawEditor(AppContext& context, const UiPalette& theme, Note& note)
 
     const float editorHeight = std::max(120.0f, ImGui::GetContentRegionAvail().y);
     if (gNotesPanel.mode == 0) {
-        drawEditableMarkdown(theme, "note-edit-pane", ImVec2(-FLT_MIN, editorHeight));
+        drawEditableMarkdown(context, theme, "note-edit-pane", ImVec2(-FLT_MIN, editorHeight));
     } else if (gNotesPanel.mode == 2) {
-        drawSelectablePreviewPane(theme, ImVec2(-FLT_MIN, editorHeight));
+        drawSelectablePreviewPane(theme, ImVec2(-FLT_MIN, editorHeight), imageResolver);
     } else {
         // Split: shared scroll progress; scrollbar lives on the right (preview) only.
         const float width = ImGui::GetContentRegionAvail().x;
@@ -2417,6 +2478,7 @@ void drawEditor(AppContext& context, const UiPalette& theme, Note& note)
         if (callbackData.targetLine >= 0) {
             flags |= ImGuiInputTextFlags_CallbackAlways;
         }
+        handleImagePasteShortcut(context);
         if (ImGui::InputTextMultiline("##note-body", &gNotesPanel.draftBody, ImVec2(editorWidth, contentHeight), flags,
                                       callbackData.targetLine >= 0 ? outlineScrollCallback : nullptr, &callbackData)) {
             markDirty();
@@ -2425,7 +2487,7 @@ void drawEditor(AppContext& context, const UiPalette& theme, Note& note)
         if (gNotesPanel.textMenuOpen) {
             restoreTextSelectionHighlight();
         }
-        drawTextEditContextMenu(theme, false);
+        drawTextEditContextMenu(context, theme, false);
         if (gNotesPanel.outline.pendingLine >= 0) {
             applyEditorOutlineScroll();
         }
@@ -2454,7 +2516,7 @@ void drawEditor(AppContext& context, const UiPalette& theme, Note& note)
         // Right pane owns the only vertical scrollbar; horizontal remains independent.
         ImGui::BeginChild("note-split-preview-pane", ImVec2(rightWidth, editorHeight), ImGuiChildFlags_None,
                           ImGuiWindowFlags_HorizontalScrollbar);
-        drawMarkdownPreview(theme, gNotesPanel.draftBody, &gNotesPanel.outline);
+        drawMarkdownPreview(theme, gNotesPanel.draftBody, &gNotesPanel.outline, &imageResolver);
         ImGuiWindow* previewWindow = ImGui::GetCurrentWindow();
         const bool previewHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
         if (previewWindow) {
@@ -2479,7 +2541,7 @@ void drawEditor(AppContext& context, const UiPalette& theme, Note& note)
     }
 }
 
-void drawQuickEditor(AppContext& context, const UiPalette& theme, Note& note)
+void drawQuickEditor(AppContext& context, const UiPalette& theme, Note& note, const MarkdownImageResolver& imageResolver)
 {
     if (notesButton(theme, Icons::CopyProperties, tr("Preview"), gNotesPanel.mode == 2)) {
         saveDraft(context, true);
@@ -2488,6 +2550,10 @@ void drawQuickEditor(AppContext& context, const UiPalette& theme, Note& note)
     ImGui::SameLine();
     if (notesButton(theme, Icons::Edit, tr("Edit"), gNotesPanel.mode == 0)) {
         gNotesPanel.mode = 0;
+    }
+    ImGui::SameLine();
+    if (notesButton(theme, Icons::Image, tr("Insert Image"))) {
+        insertNoteImage(context, false);
     }
     ImGui::SameLine();
     if (notesButton(theme, Icons::Layout, tr("Outline"), gNotesPanel.outline.showOutline)) {
@@ -2508,12 +2574,12 @@ void drawQuickEditor(AppContext& context, const UiPalette& theme, Note& note)
     const float contentWidth = std::max(160.0f, bodyWidth - outlineWidth - (gNotesPanel.outline.showOutline ? kPaneGap : 0.0f));
 
     if (gNotesPanel.mode == 0) {
-        drawEditableMarkdown(theme, "quick-note-edit-pane", ImVec2(contentWidth, bodyHeight));
+        drawEditableMarkdown(context, theme, "quick-note-edit-pane", ImVec2(contentWidth, bodyHeight));
     } else {
         pushPaneStyle(theme);
         ImGui::BeginChild("quick-note-preview-pane", ImVec2(contentWidth, bodyHeight), ImGuiChildFlags_None,
                           ImGuiWindowFlags_HorizontalScrollbar);
-        launcher::drawSelectableMarkdownPreview(theme, gNotesPanel.draftBody, &gNotesPanel.outline);
+        launcher::drawSelectableMarkdownPreview(theme, gNotesPanel.draftBody, &gNotesPanel.outline, &imageResolver);
         ImGui::EndChild();
         popPaneStyle();
     }
@@ -2530,7 +2596,7 @@ void drawQuickEditor(AppContext& context, const UiPalette& theme, Note& note)
     }
 }
 
-void drawQuickNotePanel(AppContext& context, const UiPalette& theme)
+void drawQuickNotePanel(AppContext& context, const UiPalette& theme, const MarkdownImageResolver& imageResolver)
 {
     if (!context.runtime().showNoteQuick) {
         return;
@@ -2585,7 +2651,7 @@ void drawQuickNotePanel(AppContext& context, const UiPalette& theme)
     ui_anim::pushAppearAlpha(ImGui::GetID("note-quick-appear"), 0.14f, 0.2f);
     ImGui::SetCursorPos(ImVec2(kOuterPadding, kUiTitleHeight + kOuterPadding));
     ImGui::BeginChild("note-quick-content", ImVec2(-kOuterPadding, -kOuterPadding), ImGuiChildFlags_None);
-    drawQuickEditor(context, theme, *selected);
+    drawQuickEditor(context, theme, *selected, imageResolver);
     ImGui::EndChild();
     drawCloseConfirmPopup(context, theme);
     ui_anim::popAppearAlpha();
@@ -2606,12 +2672,13 @@ std::vector<std::string> activeDragNoteIdsForDrop()
     return activeDragNoteIds();
 }
 
-void drawNotesPanel(AppContext& context, const UiPalette& theme)
+void drawNotesPanel(AppContext& context, const UiPalette& theme, MainDockResources& resources)
 {
     if (!context.runtime().showNotes && !context.runtime().showNoteQuick) {
         // Manual save only: never force-save on hide. Confirm dialogs already resolved dirty state.
         if (gNotesPanelWasVisible) {
             clearNotesPanelState();
+            resources.clearImages();
             gNotesTrimFramesRemaining = 4;
             gNotesPanelWasVisible = false;
         }
@@ -2624,7 +2691,19 @@ void drawNotesPanel(AppContext& context, const UiPalette& theme)
     gNotesPanelWasVisible = true;
     gNotesTrimFramesRemaining = 0;
 
-    drawQuickNotePanel(context, theme);
+    const MarkdownImageResolver imageResolver = [&context, &resources](std::string_view source) -> std::optional<MarkdownImage> {
+        const std::filesystem::path path = context.notes.resolveAttachmentReference(source);
+        if (path.empty()) {
+            return std::nullopt;
+        }
+        const std::optional<ImageTextureView> texture = resources.imageTexture(path);
+        if (!texture) {
+            return std::nullopt;
+        }
+        return MarkdownImage{texture->textureId, texture->width, texture->height};
+    };
+
+    drawQuickNotePanel(context, theme, imageResolver);
     if (!context.runtime().showNotes) {
         return;
     }
@@ -2748,7 +2827,7 @@ void drawNotesPanel(AppContext& context, const UiPalette& theme)
             gNotesPanel.draftPinned = selected->pinned;
             gNotesPanel.draftFixed = selected->fixed;
         }
-        drawEditor(context, theme, *selected);
+        drawEditor(context, theme, *selected, imageResolver);
     } else {
         ImGui::TextDisabled("%s", tr("No notes"));
         ImGui::Dummy(ImVec2(1.0f, 8.0f));

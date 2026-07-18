@@ -54,6 +54,7 @@ inline constexpr IconGlyph FolderOpen{0xe2c8}; // folder_open
 inline constexpr IconGlyph Forward{0xe5c8};
 inline constexpr IconGlyph Help{0xe887};
 inline constexpr IconGlyph Home{0xe88a};
+inline constexpr IconGlyph Image{0xe3f4};
 inline constexpr IconGlyph Keyboard{0xe312};
 inline constexpr IconGlyph Layout{0xe8f0}; // view_module
 inline constexpr IconGlyph Link{0xe157};

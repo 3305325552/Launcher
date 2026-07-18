@@ -115,6 +115,10 @@ set(LAUNCHER_UI_RENDERING_SOURCES
     src/ui/rendering/MainDockResources.cpp
 )
 
+set(LAUNCHER_UI_NOTES_SOURCES
+    src/ui/notes/NoteImageService.cpp
+)
+
 set(LAUNCHER_UI_DOCK_SOURCES
     src/ui/dock/MainDock.cpp
     src/ui/dock/MainDockCategoryRail.cpp
@@ -147,6 +151,7 @@ add_library(launcher_ui STATIC
     ${LAUNCHER_UI_COMMON_SOURCES}
     ${LAUNCHER_UI_PLATFORM_SOURCES}
     ${LAUNCHER_UI_RENDERING_SOURCES}
+    ${LAUNCHER_UI_NOTES_SOURCES}
     ${LAUNCHER_UI_DOCK_SOURCES}
     ${LAUNCHER_UI_SETTINGS_SOURCES}
     ${LAUNCHER_UI_VIEW_SOURCES}

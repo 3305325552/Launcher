@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace launcher {
@@ -37,6 +38,11 @@ public:
     const std::filesystem::path& directory() const;
     std::filesystem::path indexPath() const;
     std::filesystem::path attachmentsDirectory() const;
+    std::filesystem::path createAttachmentPath(const std::string& noteId, const std::filesystem::path& suggestedFilename,
+                                               std::string* error = nullptr) const;
+    std::filesystem::path importAttachment(const std::string& noteId, const std::filesystem::path& source,
+                                           std::string* error = nullptr) const;
+    std::filesystem::path resolveAttachmentReference(std::string_view reference) const;
 
     void load(std::string* error = nullptr);
     void saveIndex() const;

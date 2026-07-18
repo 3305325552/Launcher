@@ -58,17 +58,17 @@
 namespace launcher {
 namespace {
 
-using model_actions::findItemInList;
-using model_actions::itemIndexById;
-using launch_params::HistoryCandidate;
 using launch_params::defaultParamValue;
 using launch_params::effectiveParamId;
+using launch_params::HistoryCandidate;
 using launch_params::interactiveHistoryCandidates;
 using launch_params::interactiveParamKey;
 using launch_params::itemNeedsInteractivePrompt;
 using launch_params::removeInteractiveHistoryValue;
 using launch_params::withInteractiveValues;
 using launch_params::withSearchVariables;
+using model_actions::findItemInList;
+using model_actions::itemIndexById;
 
 constexpr float kTitleHeight = kUiTitleHeight;
 constexpr float kSearchHeight = 36.0f;
@@ -937,8 +937,7 @@ bool moveCurrentItemSelection(AppContext& context, ImGuiKey key)
     case ImGuiKey_DownArrow: direction = main_dock::NavigationDirection::Down; break;
     default: return false;
     }
-    const int targetEntry =
-        main_dock::findNavigationTarget(entries, currentEntry, currentNavigationViewMode(context), direction);
+    const int targetEntry = main_dock::findNavigationTarget(entries, currentEntry, currentNavigationViewMode(context), direction);
 
     if (targetEntry < 0 || targetEntry >= static_cast<int>(entries.size()) || targetEntry == currentEntry) {
         return false;
@@ -1939,7 +1938,7 @@ void drawMainDock(AppContext& context)
                    itemEditorApi());
     drawSettingsPanel(context);
     drawThemeEditor(context);
-    drawNotesPanel(context, gSession.theme);
+    drawNotesPanel(context, gSession.theme, gResources);
     drawTaskPlannerWindow(context, context.themes.active(), gSession.theme, gSession.showTaskPlanner);
     drawUserGuideWindow(context, gSession.theme);
     drawInteractiveRunDialog(context, gSession.theme);

@@ -157,6 +157,45 @@ bool folderSegmentValid(const std::string& segment)
     return true;
 }
 
+std::string attachmentFilePart(std::string value, std::string_view fallback)
+{
+    std::string result;
+    result.reserve(value.size());
+    for (unsigned char ch : value) {
+        if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '-' || ch == '_') {
+            result.push_back(static_cast<char>(ch));
+        } else if (!result.empty() && result.back() != '-') {
+            result.push_back('-');
+        }
+    }
+    while (!result.empty() && result.back() == '-') {
+        result.pop_back();
+    }
+    if (result.empty()) {
+        result.assign(fallback);
+    }
+    return result;
+}
+
+std::string lowercaseExtension(std::string extension)
+{
+    if (!extension.empty() && extension.front() == '.') {
+        extension.erase(extension.begin());
+    }
+    std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    extension.erase(std::remove_if(extension.begin(), extension.end(),
+                                   [](unsigned char ch) {
+                                       return !(ch >= 'a' && ch <= 'z') && !(ch >= '0' && ch <= '9');
+                                   }),
+                    extension.end());
+    if (extension.size() > 10) {
+        extension.resize(10);
+    }
+    return extension;
+}
+
 } // namespace
 
 NotesStore::NotesStore(std::filesystem::path directory)
@@ -181,6 +220,77 @@ std::filesystem::path NotesStore::indexPath() const
 std::filesystem::path NotesStore::attachmentsDirectory() const
 {
     return directory_ / kAttachmentsDirectoryName;
+}
+
+std::filesystem::path NotesStore::createAttachmentPath(const std::string& noteId, const std::filesystem::path& suggestedFilename,
+                                                       std::string* error) const
+{
+    if (directory_.empty() || noteId.empty() || !find(noteId)) {
+        setError(error, "note not found");
+        return {};
+    }
+
+    std::error_code ec;
+    std::filesystem::create_directories(attachmentsDirectory(), ec);
+    if (ec) {
+        setError(error, ec.message());
+        return {};
+    }
+
+    const std::string notePart = attachmentFilePart(noteId, "note");
+    const std::string stemPart = attachmentFilePart(suggestedFilename.stem().string(), "image");
+    const std::string extension = lowercaseExtension(suggestedFilename.extension().string());
+    const auto timestamp =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    for (int suffix = 0; suffix < 10000; ++suffix) {
+        std::string filename = notePart + "-" + std::to_string(timestamp) + "-" + stemPart;
+        if (suffix > 0) {
+            filename += "-" + std::to_string(suffix);
+        }
+        if (!extension.empty()) {
+            filename += "." + extension;
+        }
+        const std::filesystem::path candidate = attachmentsDirectory() / filename;
+        if (!std::filesystem::exists(candidate, ec)) {
+            return candidate;
+        }
+        ec.clear();
+    }
+    setError(error, "could not allocate attachment filename");
+    return {};
+}
+
+std::filesystem::path NotesStore::importAttachment(const std::string& noteId, const std::filesystem::path& source, std::string* error) const
+{
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(source, ec)) {
+        setError(error, ec ? ec.message() : "attachment source is not a file");
+        return {};
+    }
+    const std::filesystem::path target = createAttachmentPath(noteId, source.filename(), error);
+    if (target.empty()) {
+        return {};
+    }
+    std::filesystem::copy_file(source, target, std::filesystem::copy_options::none, ec);
+    if (ec) {
+        setError(error, ec.message());
+        return {};
+    }
+    return target;
+}
+
+std::filesystem::path NotesStore::resolveAttachmentReference(std::string_view reference) const
+{
+    constexpr std::string_view prefix = "attachment:";
+    if (!reference.starts_with(prefix)) {
+        return {};
+    }
+    const std::filesystem::path filename = std::string(reference.substr(prefix.size()));
+    if (filename.empty() || filename.is_absolute() || filename.has_parent_path() || filename.filename() != filename || filename == "." ||
+        filename == "..") {
+        return {};
+    }
+    return attachmentsDirectory() / filename;
 }
 
 void NotesStore::ensureDirectories() const

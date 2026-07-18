@@ -1049,12 +1049,42 @@ void drawInlineToken(const UiPalette& theme, const InlineRun& run, std::string_v
     }
 }
 
-void drawInlineRuns(const UiPalette& theme, const std::vector<InlineRun>& runs, ImU32 baseColor, float fontScale = 1.0f)
+bool drawInlineImage(const InlineRun& run, const MarkdownImageResolver* imageResolver)
+{
+    if (!imageResolver || !*imageResolver || run.href.empty()) {
+        return false;
+    }
+    const std::optional<MarkdownImage> image = (*imageResolver)(run.href);
+    if (!image || image->textureId == 0 || image->width <= 0 || image->height <= 0) {
+        return false;
+    }
+    const float availableWidth = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+    const float maxHeight = 480.0f;
+    const float scale = std::min({1.0f, availableWidth / static_cast<float>(image->width), maxHeight / static_cast<float>(image->height)});
+    const ImVec2 size(std::max(1.0f, image->width * scale), std::max(1.0f, image->height * scale));
+    ImGui::Image(static_cast<ImTextureID>(image->textureId), size);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s", run.text.empty() ? run.href.c_str() : run.text.c_str());
+    }
+    return true;
+}
+
+void drawInlineRuns(const UiPalette& theme, const std::vector<InlineRun>& runs, ImU32 baseColor, float fontScale = 1.0f,
+                    const MarkdownImageResolver* imageResolver = nullptr)
 {
     const float maxX = ImGui::GetCursorScreenPos().x + std::max(1.0f, ImGui::GetContentRegionAvail().x);
     bool lineStart = true;
     bool drewAny = false;
     for (const InlineRun& run : runs) {
+        if (hasStyle(run.style, InlineImage) && !lineStart) {
+            ImGui::NewLine();
+            lineStart = true;
+        }
+        if (hasStyle(run.style, InlineImage) && drawInlineImage(run, imageResolver)) {
+            lineStart = true;
+            drewAny = true;
+            continue;
+        }
         if (hasStyle(run.style, InlineMath)) {
             if (hasStyle(run.style, InlineMathDisplay)) {
                 if (!lineStart) {
@@ -1516,7 +1546,7 @@ void drawCodeBlock(const UiPalette& theme, const std::string& id, const std::str
     ImGui::PopStyleColor();
 }
 
-void drawMarkdownTable(const UiPalette& theme, const MarkdownBlock& block, int tableId)
+void drawMarkdownTable(const UiPalette& theme, const MarkdownBlock& block, int tableId, const MarkdownImageResolver* imageResolver)
 {
     unsigned colCount = block.tableColumnCount;
     for (const MarkdownRow& row : block.rows) {
@@ -1545,10 +1575,10 @@ void drawMarkdownTable(const UiPalette& theme, const MarkdownBlock& block, int t
             const MarkdownCell& cell = row.cells[column];
             if (cell.header) {
                 ImGui::PushStyleColor(ImGuiCol_Text, theme.text);
-                drawInlineRuns(theme, cell.runs, theme.text);
+                drawInlineRuns(theme, cell.runs, theme.text, 1.0f, imageResolver);
                 ImGui::PopStyleColor();
             } else {
-                drawInlineRuns(theme, cell.runs, theme.text);
+                drawInlineRuns(theme, cell.runs, theme.text, 1.0f, imageResolver);
             }
         }
     }
@@ -1698,7 +1728,8 @@ std::vector<MarkdownOutlineItem> buildMarkdownOutline(const std::string& markdow
     return items;
 }
 
-void drawMarkdownPreview(const UiPalette& theme, const std::string& markdown, MarkdownOutlineUiState* scrollState)
+void drawMarkdownPreview(const UiPalette& theme, const std::string& markdown, MarkdownOutlineUiState* scrollState,
+                         const MarkdownImageResolver* imageResolver)
 {
     const std::vector<MarkdownBlock> blocks = parseMarkdown(markdown);
     int codeId = 0;
@@ -1707,7 +1738,7 @@ void drawMarkdownPreview(const UiPalette& theme, const std::string& markdown, Ma
     for (const MarkdownBlock& block : blocks) {
         if (block.kind == MarkdownBlockKind::Heading) {
             ImGui::Spacing();
-            drawInlineRuns(theme, block.runs, theme.text, headingFontScale(block.headingLevel));
+            drawInlineRuns(theme, block.runs, theme.text, headingFontScale(block.headingLevel), imageResolver);
             applyHeadingScrollTarget(scrollState, headingIndex);
             ++headingIndex;
             if (block.headingLevel <= 2) {
@@ -1716,31 +1747,32 @@ void drawMarkdownPreview(const UiPalette& theme, const std::string& markdown, Ma
         } else if (block.kind == MarkdownBlockKind::Quote) {
             const float indent = std::max(1, block.quoteDepth) * 12.0f;
             ImGui::Indent(indent);
-            drawInlineRuns(theme, block.runs, theme.textMuted);
+            drawInlineRuns(theme, block.runs, theme.textMuted, 1.0f, imageResolver);
             ImGui::Unindent(indent);
         } else if (block.kind == MarkdownBlockKind::ListItem) {
             const float indent = std::max(0, block.listDepth - 1) * 18.0f;
             ImGui::Indent(indent);
             ImGui::TextUnformatted(listMarker(block).c_str());
             ImGui::SameLine(0.0f, 0.0f);
-            drawInlineRuns(theme, block.runs, theme.text);
+            drawInlineRuns(theme, block.runs, theme.text, 1.0f, imageResolver);
             ImGui::Unindent(indent);
         } else if (block.kind == MarkdownBlockKind::Code) {
             drawCodeBlock(theme, "markdown-code-" + std::to_string(codeId++), block.text, block.codeLanguage);
         } else if (block.kind == MarkdownBlockKind::Html) {
             drawReadonlySelectableText(theme, ("markdown-html-" + std::to_string(codeId++)).c_str(), block.text, theme.textMuted, true);
         } else if (block.kind == MarkdownBlockKind::Table) {
-            drawMarkdownTable(theme, block, tableId++);
+            drawMarkdownTable(theme, block, tableId++, imageResolver);
         } else if (block.kind == MarkdownBlockKind::HorizontalRule) {
             ImGui::Separator();
         } else {
-            drawInlineRuns(theme, block.runs, theme.text);
+            drawInlineRuns(theme, block.runs, theme.text, 1.0f, imageResolver);
         }
         ImGui::Spacing();
     }
 }
 
-void drawSelectableMarkdownPreview(const UiPalette& theme, const std::string& markdown, MarkdownOutlineUiState* scrollState)
+void drawSelectableMarkdownPreview(const UiPalette& theme, const std::string& markdown, MarkdownOutlineUiState* scrollState,
+                                   const MarkdownImageResolver* imageResolver)
 {
     const std::vector<MarkdownBlock> blocks = parseMarkdown(markdown);
     int tableId = 0;
@@ -1761,7 +1793,7 @@ void drawSelectableMarkdownPreview(const UiPalette& theme, const std::string& ma
         if (block.kind == MarkdownBlockKind::Heading) {
             ImGui::Spacing();
             if (hasRichInline(block)) {
-                drawInlineRuns(theme, block.runs, theme.text, headingFontScale(block.headingLevel));
+                drawInlineRuns(theme, block.runs, theme.text, headingFontScale(block.headingLevel), imageResolver);
             } else {
                 drawReadonlySelectableText(theme, id.c_str(), block.text, theme.text, false, headingFontScale(block.headingLevel));
             }
@@ -1774,7 +1806,7 @@ void drawSelectableMarkdownPreview(const UiPalette& theme, const std::string& ma
             const float indent = std::max(1, block.quoteDepth) * 12.0f;
             ImGui::Indent(indent);
             if (hasRichInline(block)) {
-                drawInlineRuns(theme, block.runs, theme.textMuted);
+                drawInlineRuns(theme, block.runs, theme.textMuted, 1.0f, imageResolver);
             } else {
                 drawReadonlySelectableText(theme, id.c_str(), block.text, theme.textMuted, false);
             }
@@ -1785,7 +1817,7 @@ void drawSelectableMarkdownPreview(const UiPalette& theme, const std::string& ma
             if (hasRichInline(block)) {
                 ImGui::TextUnformatted(listMarker(block).c_str());
                 ImGui::SameLine(0.0f, 0.0f);
-                drawInlineRuns(theme, block.runs, theme.text);
+                drawInlineRuns(theme, block.runs, theme.text, 1.0f, imageResolver);
             } else {
                 drawReadonlySelectableText(theme, id.c_str(), listMarker(block) + block.text, theme.text, false);
             }
@@ -1795,11 +1827,11 @@ void drawSelectableMarkdownPreview(const UiPalette& theme, const std::string& ma
         } else if (block.kind == MarkdownBlockKind::Html) {
             drawReadonlySelectableText(theme, id.c_str(), block.text, theme.textMuted, true);
         } else if (block.kind == MarkdownBlockKind::Table) {
-            drawMarkdownTable(theme, block, tableId++);
+            drawMarkdownTable(theme, block, tableId++, imageResolver);
         } else if (block.kind == MarkdownBlockKind::HorizontalRule) {
             ImGui::Separator();
         } else if (hasRichInline(block)) {
-            drawInlineRuns(theme, block.runs, theme.text);
+            drawInlineRuns(theme, block.runs, theme.text, 1.0f, imageResolver);
         } else {
             drawReadonlySelectableText(theme, id.c_str(), block.text, theme.text, false);
         }
@@ -1846,7 +1878,8 @@ void drawMarkdownOutlinePanel(const UiPalette& theme, const std::string& markdow
     ImGui::EndChild();
 }
 
-void drawMarkdownDocument(const UiPalette& theme, const std::string& markdown, MarkdownOutlineUiState& state, bool selectable)
+void drawMarkdownDocument(const UiPalette& theme, const std::string& markdown, MarkdownOutlineUiState& state, bool selectable,
+                          const MarkdownImageResolver* imageResolver)
 {
     const float gap = 10.0f;
     const float totalWidth = ImGui::GetContentRegionAvail().x;
@@ -1857,9 +1890,9 @@ void drawMarkdownDocument(const UiPalette& theme, const std::string& markdown, M
     ImGui::BeginChild("markdown-document-content", ImVec2(contentWidth, totalHeight), ImGuiChildFlags_None,
                       ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_HorizontalScrollbar);
     if (selectable) {
-        drawSelectableMarkdownPreview(theme, markdown, &state);
+        drawSelectableMarkdownPreview(theme, markdown, &state, imageResolver);
     } else {
-        drawMarkdownPreview(theme, markdown, &state);
+        drawMarkdownPreview(theme, markdown, &state, imageResolver);
     }
     ImGui::EndChild();
 

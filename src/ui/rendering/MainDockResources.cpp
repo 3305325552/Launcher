@@ -39,6 +39,8 @@ constexpr size_t kMaxPendingIconRequests = 96;
 constexpr int kFailedIconRetryFrames = 240;
 constexpr int kIconWorkingSetTrimIdleFrames = 6;
 constexpr int kIconWorkingSetTrimMinIntervalFrames = 120;
+constexpr size_t kMaxImageTextureCacheBytes = 64 * 1024 * 1024;
+constexpr size_t kMaxImageTextureCacheEntries = 32;
 
 struct Texture {
     Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv;
@@ -72,6 +74,19 @@ struct BackgroundCache {
     std::vector<std::filesystem::path> frames;
     std::unique_ptr<Texture> texture;
     int frameIndex = -1;
+};
+
+struct CachedImageTexture {
+    std::unique_ptr<Texture> texture;
+    size_t byteSize = 0;
+    int lastUsedFrame = 0;
+    std::filesystem::file_time_type writeTime{};
+    std::uintmax_t fileSize = 0;
+};
+
+struct ImageCache {
+    std::unordered_map<std::wstring, CachedImageTexture> textures;
+    size_t totalBytes = 0;
 };
 
 std::filesystem::path resolveExecutablePath(const std::filesystem::path& target)
@@ -233,9 +248,18 @@ struct IconContentBounds {
     int right = -1;
     int bottom = -1;
 
-    bool valid() const { return right >= left && bottom >= top; }
-    int width() const { return right - left + 1; }
-    int height() const { return bottom - top + 1; }
+    bool valid() const
+    {
+        return right >= left && bottom >= top;
+    }
+    int width() const
+    {
+        return right - left + 1;
+    }
+    int height() const
+    {
+        return bottom - top + 1;
+    }
 };
 
 IconBitmapSize bitmapSizeForIcon(HICON icon)
@@ -302,8 +326,8 @@ std::vector<std::uint32_t> rasterizeIcon(HICON icon, int width, int height)
         if (a == 0 && (r != 0 || g != 0 || b != 0)) {
             a = 255;
         }
-        rgba[i] = (static_cast<std::uint32_t>(a) << 24) | (static_cast<std::uint32_t>(b) << 16) |
-                  (static_cast<std::uint32_t>(g) << 8) | static_cast<std::uint32_t>(r);
+        rgba[i] = (static_cast<std::uint32_t>(a) << 24) | (static_cast<std::uint32_t>(b) << 16) | (static_cast<std::uint32_t>(g) << 8) |
+                  static_cast<std::uint32_t>(r);
     }
     DeleteObject(bitmap);
     DeleteDC(dc);
@@ -340,10 +364,10 @@ bool shouldNormalizeIconBounds(const IconContentBounds& bounds, int width, int h
     const float sourceCenterY = static_cast<float>(height) * 0.5f;
     const bool verySmall = contentMax <= sourceMax * 0.35f;
     const bool smallContent = contentMax <= sourceMax * 0.64f;
-    const bool offCenter = std::abs(contentCenterX - sourceCenterX) > sourceMax * 0.12f ||
-                           std::abs(contentCenterY - sourceCenterY) > sourceMax * 0.12f;
-    const bool anchoredTopLeft = bounds.left <= width * 0.04f && bounds.top <= height * 0.04f &&
-                                 (bounds.right < width * 0.70f || bounds.bottom < height * 0.70f);
+    const bool offCenter =
+        std::abs(contentCenterX - sourceCenterX) > sourceMax * 0.12f || std::abs(contentCenterY - sourceCenterY) > sourceMax * 0.12f;
+    const bool anchoredTopLeft =
+        bounds.left <= width * 0.04f && bounds.top <= height * 0.04f && (bounds.right < width * 0.70f || bounds.bottom < height * 0.70f);
     return verySmall || (smallContent && offCenter) || anchoredTopLeft;
 }
 
@@ -527,6 +551,7 @@ struct MainDockResources::Impl {
     ID3D11Device* device = nullptr;
     IconCache icons;
     BackgroundCache background;
+    ImageCache images;
 
     void clearIcons()
     {
@@ -557,6 +582,84 @@ struct MainDockResources::Impl {
         background.frames.clear();
         background.texture.reset();
         background.frameIndex = -1;
+    }
+
+    void clearImages()
+    {
+        images.textures.clear();
+        images.totalBytes = 0;
+    }
+
+    void pruneImages()
+    {
+        const int currentFrame = ImGui::GetFrameCount();
+        while ((images.totalBytes > kMaxImageTextureCacheBytes || images.textures.size() > kMaxImageTextureCacheEntries) &&
+               !images.textures.empty()) {
+            auto candidate = images.textures.end();
+            for (auto it = images.textures.begin(); it != images.textures.end(); ++it) {
+                if (it->second.lastUsedFrame == currentFrame && images.textures.size() <= kMaxImageTextureCacheEntries) {
+                    continue;
+                }
+                if (candidate == images.textures.end() || it->second.lastUsedFrame < candidate->second.lastUsedFrame) {
+                    candidate = it;
+                }
+            }
+            if (candidate == images.textures.end()) {
+                return;
+            }
+            images.totalBytes -= std::min(images.totalBytes, candidate->second.byteSize);
+            images.textures.erase(candidate);
+        }
+    }
+
+    Texture* imageForPath(const std::filesystem::path& path)
+    {
+        if (!device || path.empty()) {
+            return nullptr;
+        }
+        std::error_code ec;
+        const std::filesystem::path absolute = std::filesystem::absolute(path, ec).lexically_normal();
+        if (ec || !std::filesystem::is_regular_file(absolute, ec)) {
+            return nullptr;
+        }
+        const std::filesystem::file_time_type writeTime = std::filesystem::last_write_time(absolute, ec);
+        if (ec) {
+            return nullptr;
+        }
+        const std::uintmax_t fileSize = std::filesystem::file_size(absolute, ec);
+        if (ec) {
+            return nullptr;
+        }
+        const std::wstring key = absolute.wstring();
+        const int frame = ImGui::GetFrameCount();
+        if (auto it = images.textures.find(key); it != images.textures.end()) {
+            if (it->second.writeTime == writeTime && it->second.fileSize == fileSize) {
+                it->second.lastUsedFrame = frame;
+                return it->second.texture.get();
+            }
+            images.totalBytes -= std::min(images.totalBytes, it->second.byteSize);
+            images.textures.erase(it);
+        }
+        std::unique_ptr<Texture> texture;
+        try {
+            texture = createTextureFromImageFile(device, absolute);
+        } catch (...) {
+            return nullptr;
+        }
+        if (!texture || !texture->srv) {
+            return nullptr;
+        }
+        CachedImageTexture entry;
+        entry.byteSize = textureByteSize(texture.get());
+        entry.lastUsedFrame = frame;
+        entry.writeTime = writeTime;
+        entry.fileSize = fileSize;
+        entry.texture = std::move(texture);
+        Texture* result = entry.texture.get();
+        images.totalBytes += entry.byteSize;
+        images.textures.emplace(key, std::move(entry));
+        pruneImages();
+        return result;
     }
 
     void eraseIcon(const std::string& key)
@@ -706,7 +809,9 @@ struct MainDockResources::Impl {
     }
 };
 
-MainDockResources::MainDockResources() : impl_(std::make_unique<Impl>()) {}
+MainDockResources::MainDockResources()
+    : impl_(std::make_unique<Impl>())
+{}
 MainDockResources::~MainDockResources() = default;
 
 void MainDockResources::setDevice(ID3D11Device* device)
@@ -722,6 +827,7 @@ void MainDockResources::clear()
 {
     impl_->clearIcons();
     impl_->clearBackground();
+    impl_->clearImages();
 }
 
 void MainDockResources::clearIcons(bool trimWorkingSet)
@@ -737,13 +843,26 @@ void MainDockResources::clearBackground()
     impl_->clearBackground();
 }
 
+void MainDockResources::clearImages()
+{
+    impl_->clearImages();
+}
+
+std::optional<ImageTextureView> MainDockResources::imageTexture(const std::filesystem::path& path)
+{
+    Texture* texture = impl_->imageForPath(path);
+    if (!texture || !texture->srv || texture->width <= 0 || texture->height <= 0) {
+        return std::nullopt;
+    }
+    return ImageTextureView{reinterpret_cast<std::uintptr_t>(texture->srv.Get()), texture->width, texture->height};
+}
+
 void MainDockResources::resetIconLoadScheduling()
 {
     impl_->resetIconScheduling();
 }
 
-void MainDockResources::beginIconLoadFrame(const AppContext& context, bool searchOpen, bool useDefaultIcons,
-                                           const char* searchQueryText)
+void MainDockResources::beginIconLoadFrame(const AppContext& context, bool searchOpen, bool useDefaultIcons, const char* searchQueryText)
 {
     IconCache& cache = impl_->icons;
     if (useDefaultIcons) {
@@ -862,8 +981,7 @@ void MainDockResources::clearIconForItem(const LaunchItem& item)
     impl_->eraseIcon(iconCacheKey(item));
 }
 
-bool MainDockResources::drawLaunchIcon(ImDrawList* drawList, const LaunchItem& item, const ImVec2& pos, float size,
-                                       bool useDefaultIcons)
+bool MainDockResources::drawLaunchIcon(ImDrawList* drawList, const LaunchItem& item, const ImVec2& pos, float size, bool useDefaultIcons)
 {
     Texture* texture = impl_->iconForItem(item, useDefaultIcons);
     if (!texture || !texture->srv) {
@@ -871,8 +989,7 @@ bool MainDockResources::drawLaunchIcon(ImDrawList* drawList, const LaunchItem& i
     }
     const float rounding = item.type == LaunchItemType::Url ? size * 0.5f : 8.0f;
     drawList->AddImageRounded(static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(texture->srv.Get())), pos,
-                              ImVec2(pos.x + size, pos.y + size), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f),
-                              IM_COL32_WHITE, rounding);
+                              ImVec2(pos.x + size, pos.y + size), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), IM_COL32_WHITE, rounding);
     return true;
 }
 
@@ -888,9 +1005,9 @@ bool MainDockResources::drawCachedLaunchIcon(const LaunchItem& item, const ImVec
     }
     it->second.lastUsedFrame = ImGui::GetFrameCount();
     const float rounding = item.type == LaunchItemType::Url ? size * 0.5f : 8.0f;
-    ImGui::GetWindowDrawList()->AddImageRounded(
-        static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(it->second.texture->srv.Get())), pos,
-        ImVec2(pos.x + size, pos.y + size), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), IM_COL32_WHITE, rounding);
+    ImGui::GetWindowDrawList()->AddImageRounded(static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(it->second.texture->srv.Get())),
+                                                pos, ImVec2(pos.x + size, pos.y + size), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f),
+                                                IM_COL32_WHITE, rounding);
     return true;
 }
 
@@ -899,8 +1016,7 @@ bool MainDockResources::hasBackground(const ThemeDefinition& theme) const
     return theme.background.enabled && !theme.background.imagePath.empty();
 }
 
-void MainDockResources::drawBackground(const AppContext& context, const ThemeDefinition& theme, const ImVec2& origin,
-                                       const ImVec2& size)
+void MainDockResources::drawBackground(const AppContext& context, const ThemeDefinition& theme, const ImVec2& origin, const ImVec2& size)
 {
     Texture* texture = impl_->backgroundForTheme(context, theme);
     if (!texture || !texture->srv || texture->width <= 0 || texture->height <= 0) {
@@ -920,8 +1036,7 @@ void MainDockResources::drawBackground(const AppContext& context, const ThemeDef
         drawList->PushClipRect(min, max, true);
         for (float y = min.y; y < max.y; y += imageH) {
             for (float x = min.x; x < max.x; x += imageW) {
-                drawList->AddImage(id, ImVec2(x, y), ImVec2(x + imageW, y + imageH), ImVec2(0.0f, 0.0f),
-                                   ImVec2(1.0f, 1.0f), tint);
+                drawList->AddImage(id, ImVec2(x, y), ImVec2(x + imageW, y + imageH), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), tint);
             }
         }
         drawList->PopClipRect();
@@ -931,8 +1046,8 @@ void MainDockResources::drawBackground(const AppContext& context, const ThemeDef
     float drawW = imageW;
     float drawH = imageH;
     if (theme.background.imageMode == 0 || theme.background.imageMode == 1) {
-        const float scale = theme.background.imageMode == 0 ? std::max(areaW / imageW, areaH / imageH)
-                                                            : std::min(areaW / imageW, areaH / imageH);
+        const float scale =
+            theme.background.imageMode == 0 ? std::max(areaW / imageW, areaH / imageH) : std::min(areaW / imageW, areaH / imageH);
         drawW = imageW * scale;
         drawH = imageH * scale;
     } else if (theme.background.imageMode == 2) {

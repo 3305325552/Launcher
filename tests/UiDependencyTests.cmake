@@ -5,7 +5,7 @@ endif()
 set(UI_ROOT "${SOURCE_ROOT}/src/ui")
 set(FORBIDDEN_DOCK_INCLUDE "#include \"ui/dock/")
 
-foreach(layer IN ITEMS common platform settings views rendering)
+foreach(layer IN ITEMS common notes platform settings views rendering)
     file(GLOB_RECURSE layer_files "${UI_ROOT}/${layer}/*.cpp" "${UI_ROOT}/${layer}/*.hpp")
     foreach(file_path IN LISTS layer_files)
         file(READ "${file_path}" file_contents)

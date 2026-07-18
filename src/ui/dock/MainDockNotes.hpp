@@ -8,8 +8,9 @@
 namespace launcher {
 
 struct AppContext;
+class MainDockResources;
 
-void drawNotesPanel(AppContext& context, const UiPalette& theme);
+void drawNotesPanel(AppContext& context, const UiPalette& theme, MainDockResources& resources);
 bool addNoteIdsAsListItems(AppContext& context, const std::vector<std::string>& noteIds);
 std::vector<std::string> activeDragNoteIdsForDrop();
 

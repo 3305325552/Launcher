@@ -374,6 +374,21 @@ int main()
     createdNote.tags = {"persisted"};
     createdNote.body = "# Stored Note\n\nSaved markdown body";
     notesStore.saveNote(createdNote);
+    const std::filesystem::path attachmentSource = configPath.parent_path() / "sample image.PNG";
+    {
+        std::ofstream attachment(attachmentSource, std::ios::binary);
+        attachment << "test-image";
+    }
+    std::string attachmentError;
+    const std::filesystem::path importedAttachment = notesStore.importAttachment(createdNoteId, attachmentSource, &attachmentError);
+    ok &= require(!importedAttachment.empty() && std::filesystem::exists(importedAttachment), "NotesStore imports note attachments");
+    ok &= require(importedAttachment.parent_path() == notesStore.attachmentsDirectory() && importedAttachment.extension() == ".png",
+                  "NotesStore stores attachments under a stable normalized filename");
+    const std::string attachmentReference = "attachment:" + importedAttachment.filename().string();
+    ok &= require(notesStore.resolveAttachmentReference(attachmentReference) == importedAttachment,
+                  "NotesStore resolves attachment references");
+    ok &=
+        require(notesStore.resolveAttachmentReference("attachment:../config.json").empty(), "NotesStore rejects attachment path traversal");
     ok &= require(notesStore.createFolder("Projects/Work"), "NotesStore creates nested folders");
     const std::string folderNoteId = notesStore.createNote("Folder Note", "Projects/Work").id;
     const launcher::Note* folderNote = notesStore.find(folderNoteId);
@@ -539,8 +554,7 @@ int main()
     profileParam.id = "profile";
     profileParam.defaultValue = "default";
     interactiveTemplate.interactiveParams.push_back(profileParam);
-    const launcher::LaunchItem resolvedInteractive =
-        launcher::launch_params::withInteractiveValues(interactiveTemplate, {"work"});
+    const launcher::LaunchItem resolvedInteractive = launcher::launch_params::withInteractiveValues(interactiveTemplate, {"work"});
     ok &= require(resolvedInteractive.target.string() == "tool-work" && resolvedInteractive.arguments == "--profile=work",
                   "interactive parameter placeholders are replaced");
     ok &= require(launcher::launch_params::itemNeedsInteractivePrompt(interactiveTemplate), "interactive item requires a prompt");
