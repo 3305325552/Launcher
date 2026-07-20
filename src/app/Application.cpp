@@ -636,6 +636,7 @@ void Application::setupImGui()
     ImGui::StyleColorsDark();
     loadFonts();
     ImGui_ImplWin32_Init(window_->hwnd());
+    ImGui::GetPlatformIO().Platform_SetImeDataFn = nullptr;
     ImGui_ImplDX11_Init(window_->device(), window_->deviceContext());
     setMainDockDevice(window_->device());
     imguiReady_ = true;
