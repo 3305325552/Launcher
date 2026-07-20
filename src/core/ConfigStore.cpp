@@ -1,5 +1,6 @@
 #include "core/ConfigStore.hpp"
 
+#include "core/StringEncoding.hpp"
 #include "launcher/AppIdentity.hpp"
 
 #include <windows.h>
@@ -81,7 +82,7 @@ std::filesystem::path configuredDirectory(const std::filesystem::path& fallbackD
         input >> document;
         const std::string configured = document.value(kConfigDirectoryKey, "");
         if (!configured.empty()) {
-            return std::filesystem::path(configured);
+            return pathFromUtf8(configured);
         }
     } catch (...) {}
     return fallbackDirectory;
@@ -112,7 +113,7 @@ bool writeConfigLocation(const std::filesystem::path& defaultConfigPath, const s
     }
 
     json document;
-    document[kConfigDirectoryKey] = directory.string();
+    document[kConfigDirectoryKey] = pathToUtf8(directory);
     std::ofstream output(locationPath, std::ios::binary);
     if (!output) {
         setError(error, "failed to write config location");
@@ -381,8 +382,8 @@ void to_json(json& j, const LaunchItem& item)
     j = json{{"id", item.id},
              {"name", item.name},
              {"subtitle", item.subtitle},
-             {"target", item.target.string()},
-             {"startDirectory", item.startDirectory.string()},
+             {"target", pathToUtf8(item.target)},
+             {"startDirectory", pathToUtf8(item.startDirectory)},
              {"arguments", item.arguments},
              {"icon", item.icon},
              {"fallbackColor", item.fallbackColor},
@@ -410,8 +411,8 @@ void from_json(const json& j, LaunchItem& item)
     item.id = j.value("id", "");
     item.name = j.value("name", "");
     item.subtitle = j.value("subtitle", "");
-    item.target = j.value("target", "");
-    item.startDirectory = j.value("startDirectory", "");
+    item.target = pathFromUtf8(j.value("target", ""));
+    item.startDirectory = pathFromUtf8(j.value("startDirectory", ""));
     item.arguments = j.value("arguments", "");
     item.icon = j.value("icon", "");
     item.fallbackColor = j.value("fallbackColor", "#8C8C8CFF");

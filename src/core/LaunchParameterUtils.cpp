@@ -1,5 +1,7 @@
 #include "core/LaunchParameterUtils.hpp"
 
+#include "core/StringEncoding.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -87,8 +89,9 @@ LaunchItem withSearchVariables(const LaunchItem& item, const std::string& search
 {
     LaunchItem result = item;
     const std::string encoded = urlEncode(searchText);
-    result.target = replaceAll(replaceAll(result.target.string(), "%so%", searchText), "%so-url%", encoded);
-    result.startDirectory = replaceAll(replaceAll(result.startDirectory.string(), "%so%", searchText), "%so-url%", encoded);
+    result.target = pathFromUtf8(replaceAll(replaceAll(pathToUtf8(result.target), "%so%", searchText), "%so-url%", encoded));
+    result.startDirectory =
+        pathFromUtf8(replaceAll(replaceAll(pathToUtf8(result.startDirectory), "%so%", searchText), "%so-url%", encoded));
     result.arguments = replaceAll(replaceAll(result.arguments, "%so%", searchText), "%so-url%", encoded);
     result.icon = replaceAll(replaceAll(result.icon, "%so%", searchText), "%so-url%", encoded);
     return result;
@@ -194,8 +197,8 @@ LaunchItem withInteractiveValues(const LaunchItem& item, const std::vector<std::
         const std::string id = effectiveParamId(item.interactiveParams[static_cast<size_t>(i)], i);
         const std::string value = i < static_cast<int>(values.size()) ? values[static_cast<size_t>(i)]
                                                                       : defaultParamValue(item.interactiveParams[static_cast<size_t>(i)]);
-        result.target = replaceInteractiveValue(result.target.string(), id, value);
-        result.startDirectory = replaceInteractiveValue(result.startDirectory.string(), id, value);
+        result.target = pathFromUtf8(replaceInteractiveValue(pathToUtf8(result.target), id, value));
+        result.startDirectory = pathFromUtf8(replaceInteractiveValue(pathToUtf8(result.startDirectory), id, value));
         result.arguments = replaceInteractiveValue(result.arguments, id, value);
         result.icon = replaceInteractiveValue(result.icon, id, value);
     }

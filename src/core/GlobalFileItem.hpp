@@ -129,17 +129,6 @@ inline GlobalFileRecord makeGlobalFileRecord(std::string pathText, bool director
     return record;
 }
 
-inline std::filesystem::path pathFromUtf8(const std::string& utf8Path)
-{
-    std::wstring wide = widen(utf8Path);
-    for (wchar_t& ch : wide) {
-        if (ch == L'/') {
-            ch = L'\\';
-        }
-    }
-    return std::filesystem::path(wide);
-}
-
 inline LaunchItem makeGlobalFileItem(const GlobalFileRecord& record)
 {
     LaunchItem item;

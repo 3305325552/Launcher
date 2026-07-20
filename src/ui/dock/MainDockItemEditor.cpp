@@ -1,6 +1,7 @@
 #include "ui/dock/MainDockItemEditor.hpp"
 
 #include "app/AppContext.hpp"
+#include "core/StringEncoding.hpp"
 #include "ui/common/Localization.hpp"
 #include "ui/common/UiChrome.hpp"
 #include "ui/platform/UiPlatform.hpp"
@@ -62,8 +63,8 @@ void commitRegularEdit(const ItemEditorApi& api, AppContext& context, ItemEditor
         return;
     }
     if (std::vector<LaunchItem>* items = api.editingItems(context)) {
-        state.editingDraft->target = *state.editingTarget;
-        state.editingDraft->startDirectory = *state.editingStartDir;
+        state.editingDraft->target = pathFromUtf8(*state.editingTarget);
+        state.editingDraft->startDirectory = pathFromUtf8(*state.editingStartDir);
         state.editingDraft->subtitle = *state.editingRemark;
         state.editingDraft->remark = *state.editingRemark;
         state.editingDraft->icon = *state.editingIcon;

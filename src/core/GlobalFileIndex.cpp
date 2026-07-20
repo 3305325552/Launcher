@@ -151,7 +151,7 @@ std::filesystem::path rootCachePath(const std::filesystem::path& cachePath, cons
 
 std::filesystem::path cacheMetadataPath(const std::filesystem::path& cachePath)
 {
-    return cachePath.string() + ".meta";
+    return std::filesystem::path(cachePath.wstring() + L".meta");
 }
 
 void writeCacheRecord(std::ostream& output, const GlobalFileRecord& item)
@@ -209,7 +209,7 @@ void saveRootCache(const std::filesystem::path& cachePath, const std::string& ro
         return;
     }
 
-    const std::filesystem::path tmpPath = rootPath.string() + ".tmp";
+    const std::filesystem::path tmpPath(rootPath.wstring() + L".tmp");
     {
         std::ofstream output(tmpPath, std::ios::binary | std::ios::trunc);
         if (!output) {
@@ -404,7 +404,7 @@ void clearRootCaches(const std::filesystem::path& cachePath)
     }
     std::filesystem::remove(cachePath, ec);
     std::filesystem::remove(cacheMetadataPath(cachePath), ec);
-    const std::filesystem::path tmpPath = cachePath.string() + ".tmp";
+    const std::filesystem::path tmpPath(cachePath.wstring() + L".tmp");
     std::filesystem::remove(tmpPath, ec);
 }
 
@@ -449,7 +449,7 @@ void GlobalFileIndex::sync(bool enabled, std::filesystem::path cachePath, int sc
     scanIntensity_.store(clampScanIntensity(scanIntensity));
     LocalVolumeFileProvider provider;
     const std::string desiredSignature =
-        enabled ? provider.signature() + "|" + cachePath.string() + "|i" + std::to_string(clampScanIntensity(scanIntensity)) : "";
+        enabled ? provider.signature() + "|" + pathToUtf8(cachePath) + "|i" + std::to_string(clampScanIntensity(scanIntensity)) : "";
     if (desiredSignature.empty()) {
         if (!signature_.empty() || indexing_.load()) {
             stop();
@@ -498,7 +498,7 @@ void GlobalFileIndex::rebuild(std::filesystem::path cachePath, int scanIntensity
     scanIntensity = clampScanIntensity(scanIntensity);
     scanIntensity_.store(scanIntensity);
     LocalVolumeFileProvider provider;
-    signature_ = provider.signature() + "|" + cachePath.string() + "|i" + std::to_string(scanIntensity);
+    signature_ = provider.signature() + "|" + pathToUtf8(cachePath) + "|i" + std::to_string(scanIntensity);
     {
         std::lock_guard lock(stateMutex_);
         rescanPausedUntil_ = {};

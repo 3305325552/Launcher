@@ -2,6 +2,7 @@
 
 #include "app/AppContext.hpp"
 #include "core/AnimatedBackground.hpp"
+#include "core/StringEncoding.hpp"
 #include "ui/platform/UiPlatform.hpp"
 #include "ui/common/UiTheme.hpp"
 
@@ -127,7 +128,7 @@ std::string lowercaseAscii(std::string value)
 
 std::string pathExtensionKey(const std::filesystem::path& path)
 {
-    std::string extension = lowercaseAscii(path.extension().string());
+    std::string extension = lowercaseAscii(pathToUtf8(path.extension()));
     return extension.empty() ? "<none>" : extension;
 }
 
@@ -162,7 +163,7 @@ std::string iconCacheKey(const LaunchItem& item)
             return "global-file:extension:" + extension;
         }
     }
-    return "target:" + item.target.string() + "|type:" + std::to_string(static_cast<int>(item.type));
+    return "target:" + pathToUtf8(item.target) + "|type:" + std::to_string(static_cast<int>(item.type));
 }
 
 DWORD shellIconAttributesForItem(const LaunchItem& item, const std::filesystem::path& source)
@@ -176,13 +177,13 @@ DWORD shellIconAttributesForItem(const LaunchItem& item, const std::filesystem::
 
 HICON shellIconForItem(const LaunchItem& item)
 {
-    const std::string targetText = item.target.string();
+    const std::string targetText = pathToUtf8(item.target);
     if (item.icon.empty() && (targetText.starts_with("http://") || targetText.starts_with("https://"))) {
         return nullptr;
     }
 
     const bool sharedGlobalIcon = useSharedGlobalFileIcon(item);
-    std::filesystem::path source = item.icon.empty() ? item.target : std::filesystem::path(item.icon);
+    std::filesystem::path source = item.icon.empty() ? item.target : pathFromUtf8(item.icon);
     if (!sharedGlobalIcon) {
         source = resolveExecutablePath(source);
     }
@@ -193,7 +194,7 @@ HICON shellIconForItem(const LaunchItem& item)
     const DWORD attributes = shellIconAttributesForItem(item, source);
     std::error_code ec;
     const bool exists = !sharedGlobalIcon && std::filesystem::exists(source, ec);
-    const bool shortcutIcon = item.icon.empty() && lowercaseAscii(source.extension().string()) == ".lnk";
+    const bool shortcutIcon = item.icon.empty() && lowercaseAscii(pathToUtf8(source.extension())) == ".lnk";
     auto directIcon = [&](UINT extraFlags) -> HICON {
         SHFILEINFOW info{};
         const UINT flags = SHGFI_ICON | SHGFI_LARGEICON | extraFlags;
@@ -771,7 +772,7 @@ struct MainDockResources::Impl {
             return nullptr;
         }
         if (!theme.background.animated) {
-            const std::string key = "static:" + theme.background.imagePath.string();
+            const std::string key = "static:" + pathToUtf8(theme.background.imagePath);
             if (background.key != key) {
                 clearBackground();
                 background.key = key;

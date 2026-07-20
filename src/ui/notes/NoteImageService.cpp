@@ -1,6 +1,7 @@
 #include "ui/notes/NoteImageService.hpp"
 
 #include "core/NotesStore.hpp"
+#include "core/StringEncoding.hpp"
 #include "ui/common/Localization.hpp"
 
 #include <windows.h>
@@ -82,7 +83,7 @@ NoteImageInsert makeInsert(const std::filesystem::path& path, const std::string&
 {
     NoteImageInsert result;
     result.path = path;
-    result.markdown = "![" + markdownAlt(alt) + "](attachment:" + path.filename().string() + ")";
+    result.markdown = "![" + markdownAlt(alt) + "](attachment:" + pathToUtf8(path.filename()) + ")";
     return result;
 }
 
@@ -149,7 +150,7 @@ std::optional<NoteImageInsert> chooseNoteImage(NotesStore& notes, const Note& no
         return std::nullopt;
     }
     const std::filesystem::path imported = notes.importAttachment(note.id, source, error);
-    return imported.empty() ? std::nullopt : std::optional<NoteImageInsert>(makeInsert(imported, source.stem().string()));
+    return imported.empty() ? std::nullopt : std::optional<NoteImageInsert>(makeInsert(imported, pathToUtf8(source.stem())));
 }
 
 std::optional<NoteImageInsert> pasteNoteImage(NotesStore& notes, const Note& note, std::string* error)

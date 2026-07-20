@@ -2,6 +2,7 @@
 
 #include "app/AppContext.hpp"
 #include "core/GlobalFileItem.hpp"
+#include "core/StringEncoding.hpp"
 #include "ui/dock/MainDock.hpp"
 #include "ui/common/UiChrome.hpp"
 #include "ui/dock/MainDockMenu.hpp"
@@ -632,9 +633,10 @@ void drawSearchResultMenu(const UiPalette& theme, AppContext& context, const Sea
             if (menuItem(popupTheme, "", tr("All")) && api.itemPropertiesText && api.copyTextToClipboard)
                 api.copyTextToClipboard(api.itemPropertiesText(menuLaunchItem));
             if (menuItem(popupTheme, "", tr("Name")) && api.copyTextToClipboard) api.copyTextToClipboard(menuLaunchItem.name);
-            if (menuItem(popupTheme, "", tr("Target")) && api.copyTextToClipboard) api.copyTextToClipboard(menuLaunchItem.target.string());
+            if (menuItem(popupTheme, "", tr("Target")) && api.copyTextToClipboard)
+                api.copyTextToClipboard(pathToUtf8(menuLaunchItem.target));
             if (menuItem(popupTheme, "", tr("Start Directory")) && api.copyTextToClipboard)
-                api.copyTextToClipboard(menuLaunchItem.startDirectory.string());
+                api.copyTextToClipboard(pathToUtf8(menuLaunchItem.startDirectory));
             if (menuItem(popupTheme, "", tr("Arguments")) && api.copyTextToClipboard) api.copyTextToClipboard(menuLaunchItem.arguments);
             if (menuItem(popupTheme, "", tr("Icon")) && api.copyTextToClipboard) api.copyTextToClipboard(menuLaunchItem.icon);
             if (menuItem(popupTheme, "", tr("Search Keywords")) && api.copyTextToClipboard)
@@ -643,7 +645,7 @@ void drawSearchResultMenu(const UiPalette& theme, AppContext& context, const Sea
             endIconMenu();
         }
         if (menuItem(popupTheme, Icons::CopyPath, tr("Copy Path"), "Ctrl+Shift+C", false, !menuLaunchItem.target.empty()))
-            ImGui::SetClipboardText(menuLaunchItem.target.string().c_str());
+            ImGui::SetClipboardText(pathToUtf8(menuLaunchItem.target).c_str());
         if (!result.globalFile && api.copyItemToClipboard) {
             if (menuItem(popupTheme, Icons::Copy, tr("Copy"), "Ctrl+C")) api.copyItemToClipboard(menuLaunchItem, false);
             if (menuItem(popupTheme, Icons::Cut, tr("Cut"), "Ctrl+X")) api.copyItemToClipboard(menuLaunchItem, true);
@@ -1080,7 +1082,7 @@ void drawSearchResults(const UiPalette& theme, AppContext& context, SearchUiStat
             const std::string pathText = result.globalFile ? globalPath
                                          : result.note     ? noteSearchSubtitle(*result.note)
                                          : pluginResult    ? pluginResult->subtitle
-                                                           : displayItem->target.string();
+                                                           : pathToUtf8(displayItem->target);
             addClippedText(dl, ImVec2(namePos.x, row.y + 30.0f), theme.textMuted, pathText, pathClip);
             if (rowVisible && visibleShortcutCount < 10) {
                 const int shortcutIndex = visibleShortcutCount++;

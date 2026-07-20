@@ -3,6 +3,7 @@
 #include "app/AppContext.hpp"
 #include "core/LaunchParameterUtils.hpp"
 #include "core/ModelActions.hpp"
+#include "core/StringEncoding.hpp"
 #include "launcher/AppIdentity.hpp"
 #include "ui/settings/ConfigTransfer.hpp"
 #include "ui/common/Localization.hpp"
@@ -356,8 +357,8 @@ void openItemEditor(AppContext& context, int itemIndex, LaunchItemType type = La
                                                                           : "New Item";
         gSession.editingDraft = makeNewItem(defaultName, type, static_cast<int>(items->size()));
     }
-    gSession.editingTarget = gSession.editingDraft.target.string();
-    gSession.editingStartDir = gSession.editingDraft.startDirectory.string();
+    gSession.editingTarget = pathToUtf8(gSession.editingDraft.target);
+    gSession.editingStartDir = pathToUtf8(gSession.editingDraft.startDirectory);
     gSession.editingRemark = gSession.editingDraft.remark.empty() ? gSession.editingDraft.subtitle : gSession.editingDraft.remark;
     gSession.editingIcon = gSession.editingDraft.icon;
     gSession.showItemEditor = true;
@@ -379,8 +380,8 @@ void openItemEditorWithDraft(AppContext& context, const LaunchItem& sourceItem)
     gSession.editingFolderId = context.runtime().currentFolderStack.empty() ? "" : context.runtime().currentFolderStack.back();
     gSession.editingItem = -1;
     gSession.editingDraft = std::move(item);
-    gSession.editingTarget = gSession.editingDraft.target.string();
-    gSession.editingStartDir = gSession.editingDraft.startDirectory.string();
+    gSession.editingTarget = pathToUtf8(gSession.editingDraft.target);
+    gSession.editingStartDir = pathToUtf8(gSession.editingDraft.startDirectory);
     gSession.editingRemark = gSession.editingDraft.remark.empty() ? gSession.editingDraft.subtitle : gSession.editingDraft.remark;
     gSession.editingIcon = gSession.editingDraft.icon;
     gSession.showItemEditor = true;
@@ -618,8 +619,8 @@ std::string itemPropertiesText(const LaunchItem& item)
     std::string text;
     text += tr("Name: ") + item.name + "\n";
     text += tr("Type: ") + itemTypeText(item.type) + "\n";
-    text += tr("Target: ") + item.target.string() + "\n";
-    text += tr("Start directory: ") + item.startDirectory.string() + "\n";
+    text += tr("Target: ") + pathToUtf8(item.target) + "\n";
+    text += tr("Start directory: ") + pathToUtf8(item.startDirectory) + "\n";
     text += tr("Arguments: ") + item.arguments + "\n";
     text += tr("Icon: ") + item.icon + "\n";
     text += tr("Search keywords: ") + item.keywords + "\n";
@@ -647,7 +648,7 @@ void runItemsInList(AppContext& context, std::vector<LaunchItem>& items)
             continue;
         }
         if (child.type == LaunchItemType::Note) {
-            openNoteById(context, child.target.string());
+            openNoteById(context, pathToUtf8(child.target));
             ++child.runCount;
             child.lastRunAt = nowUnix();
             continue;
@@ -686,7 +687,7 @@ void runItem(AppContext& context, LaunchItem& item, int showCommand = SW_SHOWNOR
         return;
     }
     if (item.type == LaunchItemType::Note) {
-        openNoteById(context, item.target.string());
+        openNoteById(context, pathToUtf8(item.target));
         ++item.runCount;
         item.lastRunAt = nowUnix();
         context.save();
@@ -1067,7 +1068,7 @@ ItemMenuApi itemMenuApi()
                            runItem(context, item, showCommand);
                        },
                        [](AppContext& context, const LaunchItem& item) {
-                           openNoteEditorById(context, item.target.string());
+                           openNoteEditorById(context, pathToUtf8(item.target));
                        },
                        &openWithDialog,
                        &openContainingFolder,
@@ -1277,7 +1278,7 @@ void handleMainShortcuts(AppContext& context)
         // Ctrl+E opens note content editor for note items.
         if (const LaunchItem* item = findItemById(context, context.runtime().selectedItemId)) {
             if (item->type == LaunchItemType::Note) {
-                openNoteEditorById(context, item->target.string());
+                openNoteEditorById(context, pathToUtf8(item->target));
             }
         }
     } else if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {

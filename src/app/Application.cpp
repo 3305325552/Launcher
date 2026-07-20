@@ -68,7 +68,8 @@ void loadFonts()
     ImGuiIO& io = ImGui::GetIO();
     std::filesystem::path textFont = firstExistingFont();
     if (!textFont.empty()) {
-        io.Fonts->AddFontFromFileTTF(textFont.string().c_str(), 18.0f, nullptr, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+        const std::string fontPath = pathToUtf8(textFont);
+        io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 18.0f, nullptr, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
     }
 
     std::filesystem::path iconFont = getAssetDir() / "fonts" / "MaterialIcons-Regular.ttf";
@@ -80,7 +81,8 @@ void loadFonts()
         config.GlyphOffset.y = 3.5f;
         const ImVector<ImWchar>& iconRanges = materialIconGlyphRanges();
         if (!iconRanges.empty()) {
-            io.Fonts->AddFontFromFileTTF(iconFont.string().c_str(), 18.0f, &config, iconRanges.Data);
+            const std::string fontPath = pathToUtf8(iconFont);
+            io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 18.0f, &config, iconRanges.Data);
         }
     }
 }
@@ -733,8 +735,8 @@ void Application::addDroppedFiles(std::vector<std::filesystem::path> paths)
         if (path.empty()) {
             continue;
         }
-        const std::string fallbackName = path.filename().string();
-        std::string name = path.stem().string();
+        const std::string fallbackName = pathToUtf8(path.filename());
+        std::string name = pathToUtf8(path.stem());
         if (name.empty()) {
             name = fallbackName.empty() ? "New Item" : fallbackName;
         }
@@ -742,7 +744,7 @@ void Application::addDroppedFiles(std::vector<std::filesystem::path> paths)
         LaunchItem item;
         item.id = "drop-" + std::to_string(targetItems->size() + 1) + "-" + std::to_string(timestamp);
         item.name = name;
-        item.subtitle = path.filename().string();
+        item.subtitle = fallbackName;
         item.target = path;
         item.startDirectory = path.has_parent_path() ? path.parent_path() : std::filesystem::path{};
         item.type = LaunchItemType::App;

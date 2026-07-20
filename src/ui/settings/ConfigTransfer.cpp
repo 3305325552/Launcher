@@ -43,12 +43,12 @@ namespace launcher {
 
 std::string configPathText(const AppContext& context)
 {
-    return context.config.path().string();
+    return pathToUtf8(context.config.path());
 }
 
 std::string configDirectoryText(const AppContext& context)
 {
-    return context.config.directory().string();
+    return pathToUtf8(context.config.directory());
 }
 
 void openConfigLocation(AppContext& context)
@@ -68,7 +68,7 @@ void changeConfigDirectory(AppContext& context)
 
     context.save();
     std::string error;
-    if (!context.config.moveConfigDirectory(std::filesystem::path(selected), &error)) {
+    if (!context.config.moveConfigDirectory(pathFromUtf8(selected), &error)) {
         showMessage("Change Config Directory", errorMessage("Failed to change config directory.", error), MB_ICONERROR);
         return;
     }
@@ -86,7 +86,7 @@ void exportConfig(AppContext& context)
     if (output.empty()) {
         return;
     }
-    std::filesystem::path destination(output);
+    std::filesystem::path destination = pathFromUtf8(output);
     if (!destination.has_extension()) {
         destination += ".json";
     }
@@ -113,7 +113,7 @@ void importConfig(AppContext& context)
         return;
     }
 
-    const std::filesystem::path source(input);
+    const std::filesystem::path source = pathFromUtf8(input);
     std::string loadError;
     if (!ConfigStore(source).tryLoadPersisted(&loadError)) {
         showMessage("Import Config", errorMessage("Selected config file is invalid.", loadError), MB_ICONERROR);

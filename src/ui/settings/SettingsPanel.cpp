@@ -1,6 +1,7 @@
 #include "ui/settings/SettingsPanel.hpp"
 
 #include "app/AppContext.hpp"
+#include "core/StringEncoding.hpp"
 #include "platform/SystemIntegration.hpp"
 #include "ui/settings/ConfigTransfer.hpp"
 #include "ui/common/Localization.hpp"
@@ -507,7 +508,7 @@ bool drawPluginCard(const PluginInfo& plugin, AppContext& context)
     dl->AddText(ImVec2(right, y2), muted, "Caps:");
     const std::string capabilities = joinPluginCapabilities(plugin.capabilities);
     dl->AddText(ImVec2(right + 56.0f, y2), text, capabilities.c_str());
-    const std::string description = plugin.description.empty() ? plugin.directory.string() : plugin.description;
+    const std::string description = plugin.description.empty() ? pathToUtf8(plugin.directory) : plugin.description;
     dl->AddText(ImVec2(left, start.y + 122.0f), muted, description.c_str());
 
     float cursorY = start.y + 146.0f;
@@ -670,7 +671,7 @@ bool drawPluginPage(AppContext& context)
         ImGui::Dummy(ImVec2(1.0f, 6.0f));
         ImGui::TextDisabled("%s", tr("Plugin directories:"));
         for (const std::filesystem::path& root : context.pluginRoots()) {
-            ImGui::BulletText("%s", root.string().c_str());
+            ImGui::BulletText("%s", pathToUtf8(root).c_str());
         }
         return changed;
     }

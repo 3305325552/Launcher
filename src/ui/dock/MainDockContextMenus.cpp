@@ -1,6 +1,7 @@
 #include "ui/dock/MainDockContextMenus.hpp"
 
 #include "app/AppContext.hpp"
+#include "core/StringEncoding.hpp"
 #include "ui/common/Localization.hpp"
 #include "ui/common/UiChrome.hpp"
 #include "ui/dock/MainDockMenu.hpp"
@@ -187,7 +188,7 @@ void drawItemMenu(const UiPalette& theme, AppContext& context, std::vector<Launc
                 if (menuItem(popupTheme, "", tr("All")) && api.itemPropertiesText && api.copyTextToClipboard)
                     api.copyTextToClipboard(api.itemPropertiesText(item));
                 if (menuItem(popupTheme, "", tr("Name")) && api.copyTextToClipboard) api.copyTextToClipboard(item.name);
-                if (menuItem(popupTheme, "", tr("Target")) && api.copyTextToClipboard) api.copyTextToClipboard(item.target.string());
+                if (menuItem(popupTheme, "", tr("Target")) && api.copyTextToClipboard) api.copyTextToClipboard(pathToUtf8(item.target));
                 if (menuItem(popupTheme, "", tr("Remark")) && api.copyTextToClipboard) api.copyTextToClipboard(item.remark);
                 endIconMenu();
             }
@@ -247,9 +248,9 @@ void drawItemMenu(const UiPalette& theme, AppContext& context, std::vector<Launc
             if (menuItem(popupTheme, "", tr("All")) && api.itemPropertiesText && api.copyTextToClipboard)
                 api.copyTextToClipboard(api.itemPropertiesText(item));
             if (menuItem(popupTheme, "", tr("Name")) && api.copyTextToClipboard) api.copyTextToClipboard(item.name);
-            if (menuItem(popupTheme, "", tr("Target")) && api.copyTextToClipboard) api.copyTextToClipboard(item.target.string());
+            if (menuItem(popupTheme, "", tr("Target")) && api.copyTextToClipboard) api.copyTextToClipboard(pathToUtf8(item.target));
             if (menuItem(popupTheme, "", tr("Start Directory")) && api.copyTextToClipboard)
-                api.copyTextToClipboard(item.startDirectory.string());
+                api.copyTextToClipboard(pathToUtf8(item.startDirectory));
             if (menuItem(popupTheme, "", tr("Arguments")) && api.copyTextToClipboard) api.copyTextToClipboard(item.arguments);
             if (menuItem(popupTheme, "", tr("Icon")) && api.copyTextToClipboard) api.copyTextToClipboard(item.icon);
             if (menuItem(popupTheme, "", tr("Search Keywords")) && api.copyTextToClipboard) api.copyTextToClipboard(item.keywords);
@@ -257,7 +258,8 @@ void drawItemMenu(const UiPalette& theme, AppContext& context, std::vector<Launc
             endIconMenu();
         }
         ImGui::Separator();
-        if (menuItem(popupTheme, Icons::CopyPath, tr("Copy Path"), "Ctrl+Shift+C")) ImGui::SetClipboardText(item.target.string().c_str());
+        if (menuItem(popupTheme, Icons::CopyPath, tr("Copy Path"), "Ctrl+Shift+C"))
+            ImGui::SetClipboardText(pathToUtf8(item.target).c_str());
         if (menuItem(popupTheme, Icons::Copy, tr("Copy"), "Ctrl+C") && api.copyItemToClipboard) api.copyItemToClipboard(item, false);
         if (menuItem(popupTheme, Icons::Cut, tr("Cut"), "Ctrl+X") && api.copyItemToClipboard) api.copyItemToClipboard(item, true);
         ImGui::Separator();
@@ -287,7 +289,7 @@ void drawItemTooltip(const UiPalette& theme, const AppSettings& settings, const 
     ImGui::TextUnformatted(item.name.c_str());
     ImGui::Separator();
     if (settings.tooltipRunCount) ImGui::Text(tr("Run count: %d"), item.runCount);
-    if (settings.tooltipTarget && !item.target.empty()) ImGui::Text(tr("Target: %s"), item.target.string().c_str());
+    if (settings.tooltipTarget && !item.target.empty()) ImGui::Text(tr("Target: %s"), pathToUtf8(item.target).c_str());
     if (settings.tooltipArguments && !item.arguments.empty()) ImGui::Text(tr("Arguments: %s"), item.arguments.c_str());
     if (settings.tooltipRemark && !item.remark.empty()) ImGui::Text(tr("Remark: %s"), item.remark.c_str());
     if (api.timeText) {

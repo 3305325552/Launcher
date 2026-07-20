@@ -3,6 +3,7 @@
 #include "core/LauncherService.hpp"
 #include "core/ModelActions.hpp"
 #include "core/SearchIndex.hpp"
+#include "core/StringEncoding.hpp"
 #include "app/AppContext.hpp"
 
 #include <algorithm>
@@ -301,7 +302,10 @@ int main()
     noteIndex.rebuild({apps}, {note});
     ok &= require(noteIndex.query("docker", settings).empty(), "archived notes are excluded from search results");
 
-    const std::filesystem::path configPath = std::filesystem::temp_directory_path() / "launcher-configstore-test" / "config.json";
+    const std::string unicodeFolderUtf8 = "\xE4\xB8\xAD\xE6\x96\x87\xE7\x9B\xAE\xE5\xBD\x95";
+    const std::string unicodeTargetUtf8 = "C:/\xE4\xB8\xAD\xE6\x96\x87/\xE5\xBA\x94\xE7\x94\xA8.exe";
+    const std::filesystem::path configPath =
+        std::filesystem::temp_directory_path() / launcher::pathFromUtf8("launcher-configstore-" + unicodeFolderUtf8) / "config.json";
     std::error_code ec;
     std::filesystem::remove_all(configPath.parent_path(), ec);
 
@@ -326,6 +330,10 @@ int main()
     savedTask.history.push_back({100, 101, true, "completed"});
     saved.scheduledTasks.push_back(savedTask);
     saved.categories.push_back(apps);
+    launcher::LaunchItem unicodePathItem = item("unicode-path", "Unicode Path");
+    unicodePathItem.target = launcher::pathFromUtf8(unicodeTargetUtf8);
+    unicodePathItem.startDirectory = launcher::pathFromUtf8("C:/" + unicodeFolderUtf8);
+    saved.categories.front().items.push_back(std::move(unicodePathItem));
 
     launcher::ConfigStore store(configPath);
     store.save(saved);
@@ -351,6 +359,14 @@ int main()
                                          savedItem.target.string() == "note-alpha";
                               }),
                   "ConfigStore persists note launcher items");
+    const auto unicodePathItemIt = std::find_if(loaded.categories.front().items.begin(), loaded.categories.front().items.end(),
+                                                [](const launcher::LaunchItem& savedItem) {
+                                                    return savedItem.id == "unicode-path";
+                                                });
+    ok &= require(unicodePathItemIt != loaded.categories.front().items.end() &&
+                      launcher::pathToUtf8(unicodePathItemIt->target) == unicodeTargetUtf8 &&
+                      launcher::pathToUtf8(unicodePathItemIt->startDirectory) == "C:/" + unicodeFolderUtf8,
+                  "ConfigStore preserves UTF-8 paths in a Unicode config directory");
     ok &= require(!launcher::LauncherService{}.launch(loaded.categories.front().items[1]),
                   "LauncherService does not shell-launch note items");
 
@@ -374,7 +390,8 @@ int main()
     createdNote.tags = {"persisted"};
     createdNote.body = "# Stored Note\n\nSaved markdown body";
     notesStore.saveNote(createdNote);
-    const std::filesystem::path attachmentSource = configPath.parent_path() / "sample image.PNG";
+    const std::filesystem::path attachmentSource =
+        configPath.parent_path() / launcher::pathFromUtf8("sample-" + unicodeFolderUtf8 + ".PNG");
     {
         std::ofstream attachment(attachmentSource, std::ios::binary);
         attachment << "test-image";

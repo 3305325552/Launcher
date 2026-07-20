@@ -1,5 +1,7 @@
 #include "core/ThemeStore.hpp"
 
+#include "core/StringEncoding.hpp"
+
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -112,7 +114,7 @@ std::filesystem::path resolveThemePath(const std::filesystem::path& themePath, c
     if (value.empty()) {
         return {};
     }
-    std::filesystem::path path(value);
+    std::filesystem::path path = pathFromUtf8(value);
     if (path.is_relative()) {
         path = themePath.parent_path() / path;
     }
@@ -127,9 +129,9 @@ std::string storedThemePath(const std::filesystem::path& themePath, const std::f
     std::error_code ec;
     const std::filesystem::path relative = std::filesystem::relative(value, themePath.parent_path(), ec);
     if (!ec && !relative.empty() && relative.native().find(L"..") != 0) {
-        return relative.generic_string();
+        return narrow(relative.generic_wstring());
     }
-    return value.string();
+    return pathToUtf8(value);
 }
 
 std::string sanitizeFileStem(std::string value)
@@ -173,7 +175,7 @@ std::string sanitizeFileName(std::string value)
 
 std::string mimeForPath(const std::filesystem::path& path)
 {
-    std::string ext = path.extension().string();
+    std::string ext = pathToUtf8(path.extension());
     std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
     });
@@ -300,7 +302,7 @@ void embedBackgroundIfNeeded(ThemeDefinition& theme)
     if (bytes.empty()) {
         return;
     }
-    theme.background.imageEmbeddedName = sanitizeFileName(theme.background.imagePath.filename().string());
+    theme.background.imageEmbeddedName = sanitizeFileName(pathToUtf8(theme.background.imagePath.filename()));
     theme.background.imageEmbeddedMime = mimeForPath(theme.background.imagePath);
     theme.background.imageEmbeddedBase64 = base64Encode(bytes);
 }
@@ -356,10 +358,10 @@ bool loadThemeFile(const std::filesystem::path& path, bool builtin, ThemeDefinit
     try {
         json document;
         input >> document;
-        const std::string rawId = document.value("id", path.stem().string());
+        const std::string rawId = document.value("id", pathToUtf8(path.stem()));
         theme = {};
         theme.id = prefixedId(builtin, rawId);
-        theme.name = document.value("name", rawId.empty() ? path.stem().string() : rawId);
+        theme.name = document.value("name", rawId.empty() ? pathToUtf8(path.stem()) : rawId);
         theme.author = document.value("author", "Launcher");
         theme.dark = document.value("dark", false);
         theme.sourcePath = path;

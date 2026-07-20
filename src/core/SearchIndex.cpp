@@ -982,7 +982,7 @@ int scoreItem(const LaunchItem& item, const std::string& needle, const AppSettin
     if (settings.searchRegex) {
         std::vector<std::string> fields = {item.name, item.subtitle, item.keywords, item.hotkey};
         if (settings.searchScopeTarget) {
-            fields.push_back(item.target.string());
+            fields.push_back(pathText(item.target));
             fields.push_back(item.arguments);
         }
         if (settings.searchScopeRemark) {

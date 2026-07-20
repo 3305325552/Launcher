@@ -1,5 +1,7 @@
 #include "core/PluginManager.hpp"
 
+#include "core/StringEncoding.hpp"
+
 #include <windows.h>
 
 #include <nlohmann/json.hpp>
@@ -229,7 +231,7 @@ void ensurePluginCacheDirectory(const json& request)
 
 bool runProcessPluginRequest(const PluginInfo& plugin, const json& request, DWORD timeoutMs, json* response)
 {
-    const std::filesystem::path exe = plugin.directory / plugin.entry;
+    const std::filesystem::path exe = plugin.directory / pathFromUtf8(plugin.entry);
     ensurePluginCacheDirectory(request);
     std::wstring command = quoteCommandPath(exe);
 
@@ -453,7 +455,7 @@ bool PluginManager::runNativePluginRequest(const PluginInfo& plugin, const std::
     std::lock_guard lock(mutex_);
     NativeModule& native = nativeModules_[plugin.id];
     if (!native.module) {
-        const std::filesystem::path dllPath = plugin.directory / plugin.entry;
+        const std::filesystem::path dllPath = plugin.directory / pathFromUtf8(plugin.entry);
         HMODULE module = LoadLibraryW(dllPath.wstring().c_str());
         if (!module) {
             nativeModules_.erase(plugin.id);
@@ -563,7 +565,7 @@ void PluginManager::load(const std::vector<std::filesystem::path>& roots, const 
                 seen.insert(plugin.id);
                 plugins_.push_back(std::move(plugin));
             } catch (const std::exception& ex) {
-                plugin.id = entry.path().filename().string();
+                plugin.id = pathToUtf8(entry.path().filename());
                 plugin.name = plugin.id;
                 plugin.loadError = ex.what();
                 plugins_.push_back(std::move(plugin));
@@ -636,8 +638,8 @@ std::vector<PluginSearchResult> PluginManager::query(const AppSettings& settings
         json params{{"query", queryText},
                     {"limit", limit},
                     {"settings", settingsJson(pref->settings)},
-                    {"pluginDir", plugin.directory.string()},
-                    {"cacheDir", pluginCacheDirectory(plugin.id).string()}};
+                    {"pluginDir", pathToUtf8(plugin.directory)},
+                    {"cacheDir", pathToUtf8(pluginCacheDirectory(plugin.id))}};
         addTaskContext(params, plugin, tasks);
         json request{{"id", 1}, {"method", "search"}, {"params", std::move(params)}};
         ensurePluginCacheDirectory(request);
@@ -704,8 +706,8 @@ PluginRunResult PluginManager::runAction(const AppSettings& settings, const std:
     json params{{"resultId", result.id},
                 {"actionId", actionId.empty() ? "open" : actionId},
                 {"settings", settingsJson(pref->settings)},
-                {"pluginDir", pluginCopy.directory.string()},
-                {"cacheDir", pluginCacheDirectory(pluginCopy.id).string()}};
+                {"pluginDir", pathToUtf8(pluginCopy.directory)},
+                {"cacheDir", pathToUtf8(pluginCacheDirectory(pluginCopy.id))}};
     addTaskContext(params, pluginCopy, tasks);
     json request{{"id", 1}, {"method", "run"}, {"params", std::move(params)}};
     ensurePluginCacheDirectory(request);
@@ -752,8 +754,8 @@ void PluginManager::notifyEvent(const AppSettings& settings, const std::vector<S
         json params{{"name", eventName},
                     {"fields", payload},
                     {"settings", settingsJson(pref->settings)},
-                    {"pluginDir", plugin.directory.string()},
-                    {"cacheDir", pluginCacheDirectory(plugin.id).string()}};
+                    {"pluginDir", pathToUtf8(plugin.directory)},
+                    {"cacheDir", pathToUtf8(pluginCacheDirectory(plugin.id))}};
         addTaskContext(params, plugin, tasks);
         json request{{"id", 1}, {"method", "event"}, {"params", std::move(params)}};
         ensurePluginCacheDirectory(request);

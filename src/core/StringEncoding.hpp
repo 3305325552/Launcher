@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include <filesystem>
 #include <string>
 
 namespace launcher {
@@ -26,6 +27,16 @@ inline std::string narrow(const std::wstring& value)
     std::string result(count, '\0');
     WideCharToMultiByte(CP_UTF8, 0, value.data(), static_cast<int>(value.size()), result.data(), count, nullptr, nullptr);
     return result;
+}
+
+inline std::string pathToUtf8(const std::filesystem::path& value)
+{
+    return narrow(value.wstring());
+}
+
+inline std::filesystem::path pathFromUtf8(const std::string& value)
+{
+    return std::filesystem::path(widen(value));
 }
 
 } // namespace launcher

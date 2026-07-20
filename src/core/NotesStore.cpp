@@ -1,5 +1,7 @@
 #include "core/NotesStore.hpp"
 
+#include "core/StringEncoding.hpp"
+
 #include <windows.h>
 #include <nlohmann/json.hpp>
 
@@ -56,7 +58,7 @@ bool writeFileAtomic(const std::filesystem::path& path, const std::string& conte
         return false;
     }
 
-    const std::filesystem::path tmpPath = path.parent_path() / (path.filename().string() + ".tmp");
+    const std::filesystem::path tmpPath = path.parent_path() / pathFromUtf8(pathToUtf8(path.filename()) + ".tmp");
     {
         std::ofstream output(tmpPath, std::ios::binary);
         if (!output) {
@@ -116,7 +118,7 @@ json noteToJson(const Note& note)
                 {"archived", note.archived},
                 {"createdAt", note.createdAt},
                 {"updatedAt", note.updatedAt},
-                {"markdownPath", note.markdownPath.generic_string()}};
+                {"markdownPath", narrow(note.markdownPath.generic_wstring())}};
 }
 
 Note noteFromJson(const json& j)
@@ -134,11 +136,11 @@ Note noteFromJson(const json& j)
     note.archived = j.value("archived", false);
     note.createdAt = j.value("createdAt", 0LL);
     note.updatedAt = j.value("updatedAt", 0LL);
-    note.markdownPath = j.value("markdownPath", "");
+    note.markdownPath = pathFromUtf8(j.value("markdownPath", ""));
     if (note.folder.empty() && !note.markdownPath.empty()) {
         const std::filesystem::path relative = note.markdownPath;
         if (relative.has_parent_path()) {
-            note.folder = NotesStore::normalizeFolderPath(relative.parent_path().generic_string());
+            note.folder = NotesStore::normalizeFolderPath(narrow(relative.parent_path().generic_wstring()));
         }
     }
     return note;
@@ -238,8 +240,8 @@ std::filesystem::path NotesStore::createAttachmentPath(const std::string& noteId
     }
 
     const std::string notePart = attachmentFilePart(noteId, "note");
-    const std::string stemPart = attachmentFilePart(suggestedFilename.stem().string(), "image");
-    const std::string extension = lowercaseExtension(suggestedFilename.extension().string());
+    const std::string stemPart = attachmentFilePart(pathToUtf8(suggestedFilename.stem()), "image");
+    const std::string extension = lowercaseExtension(pathToUtf8(suggestedFilename.extension()));
     const auto timestamp =
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     for (int suffix = 0; suffix < 10000; ++suffix) {
@@ -394,7 +396,7 @@ std::filesystem::path NotesStore::markdownPathFor(const std::string& noteId, con
     if (normalized.empty()) {
         return noteId + ".md";
     }
-    return std::filesystem::path(normalized) / (noteId + ".md");
+    return pathFromUtf8(normalized) / pathFromUtf8(noteId + ".md");
 }
 
 void NotesStore::rememberFolder(const std::string& folderPath)
@@ -478,7 +480,7 @@ bool NotesStore::relocateNoteFile(Note& note, const std::filesystem::path& newRe
         writeFileAtomic(newPath, note.body);
     }
 
-    note.markdownPath = newRelativePath.generic_string();
+    note.markdownPath = newRelativePath;
     return true;
 }
 

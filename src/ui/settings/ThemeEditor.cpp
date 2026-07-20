@@ -180,7 +180,7 @@ std::vector<ThemeColor> rowsToColors(const std::vector<ThemeRow>& rows)
 
 bool isAnimatedBackgroundSource(const std::filesystem::path& path)
 {
-    std::string ext = path.extension().string();
+    std::string ext = pathToUtf8(path.extension());
     std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) {
         return static_cast<char>(std::tolower(ch));
     });
@@ -456,7 +456,7 @@ void drawThemeMetadata(AppContext& context, ThemeDefinition& draft)
     if (ui_anim::button(tr("Select file"), ImVec2(96.0f, 28.0f))) {
         const std::string selected = openBackgroundFileDialog();
         if (!selected.empty()) {
-            draft.background.imagePath = selected;
+            draft.background.imagePath = pathFromUtf8(selected);
             draft.background.imageEmbeddedBase64.clear();
             draft.background.imageEmbeddedName.clear();
             draft.background.imageEmbeddedMime.clear();
@@ -473,7 +473,8 @@ void drawThemeMetadata(AppContext& context, ThemeDefinition& draft)
     ImGui::TableSetColumnIndex(2);
     ImGui::TextUnformatted(tr("Source file"));
     ImGui::TableSetColumnIndex(3);
-    ImGui::TextWrapped("%s", draft.background.imagePath.empty() ? tr("Not set") : draft.background.imagePath.filename().string().c_str());
+    ImGui::TextWrapped("%s",
+                       draft.background.imagePath.empty() ? tr("Not set") : pathToUtf8(draft.background.imagePath.filename()).c_str());
 
     static constexpr std::array<const char*, 5> modes = {"Fill", "Fit", "Stretch", "Tile", "Center"};
     draft.background.imageMode = std::clamp(draft.background.imageMode, 0, static_cast<int>(modes.size()) - 1);
@@ -569,7 +570,8 @@ void drawThemeMetadata(AppContext& context, ThemeDefinition& draft)
     if (draft.background.animated && !draft.background.imagePath.empty()) {
         const std::string key = animatedBackgroundCacheKey(draft.background.imagePath, draft.background.animationFps,
                                                            draft.background.animationMaxWidth, draft.background.animationQuality);
-        ImGui::TextWrapped("%s", animatedBackgroundCacheDirectory(context.config.directory() / "background-cache", key).string().c_str());
+        ImGui::TextWrapped("%s",
+                           pathToUtf8(animatedBackgroundCacheDirectory(context.config.directory() / "background-cache", key)).c_str());
     } else {
         ImGui::TextDisabled("%s", tr("Not set"));
     }
@@ -707,7 +709,7 @@ void drawThemeEditor(AppContext& context)
             }
         }
         ImGui::SameLine();
-        ImGui::TextDisabled("%s", draft.builtin ? tr("Built-in themes save as custom themes") : draft.sourcePath.string().c_str());
+        ImGui::TextDisabled("%s", draft.builtin ? tr("Built-in themes save as custom themes") : pathToUtf8(draft.sourcePath).c_str());
 
         ImGui::SetCursorPos(ImVec2(14.0f, kUiTitleHeight + 52.0f));
         ImGui::BeginChild("theme-metadata", ImVec2(-14.0f, 312.0f), ImGuiChildFlags_None);

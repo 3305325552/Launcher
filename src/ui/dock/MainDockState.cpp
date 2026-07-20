@@ -1,6 +1,7 @@
 #include "ui/dock/MainDockState.hpp"
 
 #include "app/AppContext.hpp"
+#include "core/StringEncoding.hpp"
 #include "ui/dock/MainDockDragPayload.hpp"
 #include <windows.h>
 #include <imgui.h>
@@ -440,7 +441,7 @@ void copyItemToClipboard(const LaunchItem& item, bool cut)
     gState.clipboardCut = cut;
     gState.clipboardSourceId = item.id;
     if (!item.target.empty()) {
-        ImGui::SetClipboardText(item.target.string().c_str());
+        ImGui::SetClipboardText(pathToUtf8(item.target).c_str());
     }
 }
 

@@ -1,5 +1,7 @@
 #include "core/AnimatedBackground.hpp"
 
+#include "core/StringEncoding.hpp"
+
 #include <windows.h>
 
 #include <algorithm>
@@ -68,7 +70,7 @@ std::string animatedBackgroundCacheKey(const std::filesystem::path& source, int 
     quality = std::clamp(quality, 2, 31);
 
     std::ostringstream text;
-    text << normalized.generic_string() << "|" << fileSize << "|" << ticks << "|" << fps << "|" << maxWidth << "|" << quality;
+    text << narrow(normalized.generic_wstring()) << "|" << fileSize << "|" << ticks << "|" << fps << "|" << maxWidth << "|" << quality;
     return hex64(fnv1a(text.str()));
 }
 
@@ -88,7 +90,7 @@ std::vector<std::filesystem::path> animatedBackgroundFrames(const std::filesyste
         if (!entry.is_regular_file(ec)) {
             continue;
         }
-        const std::string name = entry.path().filename().string();
+        const std::string name = pathToUtf8(entry.path().filename());
         if (name.rfind("frame_", 0) == 0 && entry.path().extension() == ".jpg") {
             frames.push_back(entry.path());
         }
